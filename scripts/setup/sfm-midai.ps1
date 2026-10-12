@@ -1,0 +1,18 @@
+$ErrorActionPreference = 'Continue'
+$env:CUDA_PATH = 'E:\dev\tools\cuda-env'
+$env:CUDA_HOME = 'E:\dev\tools\cuda-env'
+$env:CUDAToolkit_ROOT = 'E:\dev\tools\cuda-env'
+$env:PATH = 'E:\dev\tools\cuda-env\bin;' + $env:PATH
+$colmap = 'E:\dev\Colmap-Kernel\colmap\build-mx150\src\colmap\exe\colmap.exe'
+$proj = 'E:\dev\Midai-14agustus'
+$src = 'E:\Foto Udara\Midai\Photo Capture\14 Agustus 2025'
+mkdir "$proj\images" -Force | Out-Null
+Copy-Item "$src\*.jpg" "$proj\images\" -Force # top level saja; subdir Duplikat\ dikecualikan
+Write-Host ("images=" + @(Get-ChildItem "$proj\images\*.jpg").Count)
+& $colmap feature_extractor --database_path "$proj\database.db" --image_path "$proj\images" --ImageReader.single_camera 1 --FeatureExtraction.use_gpu 0 --FeatureExtraction.num_threads -1 2>&1 | Tee-Object "$proj\log_extract.txt"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& $colmap sequential_matcher --database_path "$proj\database.db" --SequentialMatching.overlap 10 --FeatureMatching.use_gpu 0 --FeatureMatching.num_threads -1 2>&1 | Tee-Object "$proj\log_match.txt"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+mkdir "$proj\sparse" -Force | Out-Null
+& $colmap mapper --database_path "$proj\database.db" --image_path "$proj\images" --output_path "$proj\sparse" 2>&1 | Tee-Object "$proj\log_mapper.txt"
+exit $LASTEXITCODE
