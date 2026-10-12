@@ -361,7 +361,15 @@ Revisit bila proyek >500 foto.
 Skrip SfM: `sfm-primary.ps1` (CPU SIFT `use_gpu 0`, single_camera,
 sequential overlap 10) → `<primary-dataset>\`.
 
-### Rencana profiling GPU + PopSIFT (setelah baseline CPU jadi)
+### Rencana profiling GPU + SfM-GPU native (putusbawan pemilik 2026-10-12)
+
+PopSIFT DITOLAK (MPL-2.0 di luar pengecualian Eigen+CUDA yang tercatat;
+ diverifikasi via docs AliceVision — paten SIFT sendiri kedaluwarsa 2020
+ sehingga paten bukan masalah, lisensinya yang ditolak). Pengganti: tulis
+ SIFT-GPU native Apache-2.0 di tree ini (tanpa dependensi baru), ronde
+ pertama = ekstraksi + matching sekaligus. Pembanding = install OpenSfM
+ (BSD-3.0) + duel adil Secondary 51 foto: kecepatan (mnt extract+match)
+ dan kualitas (reg rate, track length, reproj error).
 Urutan: baseline CPU selesai → integrasi PopSIFT (MPL-2.0) sebagai ablasi
 → profiling → baru putuskan optimasi.
 
