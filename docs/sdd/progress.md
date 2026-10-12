@@ -85,6 +85,7 @@
 - Skrip tanpa hardpath: scripts/env.ps1 + env.local.ps1 (gitignored) + template; 64 file via transformer + 9 manual; nol sisa path, parsecheck 0, vcvars-order bug ketemu+betulkan, bukti hidup metrics-secondary jalan.
 - Lisensi final Apache-2.0 (LICENSE kanonis + Copyright 2026 RyanAraaful) + THIRD_PARTY_NOTICES.md dari sumber primer (BSD/MIT verbatim, pointer MPL/BSL/EULA); koreksi Ceres=BSD-3. Push OK.
 - Tutup lisensi: header Apache di tools/metrics.cpp + rebuild exe terverifikasi jalan. Status akhir: tree permisif-murni (Eigen MPL + toolchain CUDA sebagai pengecualian tercatat).
+- Scrub identitas site: Primary/Secondary di semua file ter-track (nol token, parsecheck 0, proof metrik identik); file skrip + fused_secondary_*.ply di-rename; lock git basi sekali, aman.
 - Metrik pemenang: Primary reuse2 cov 0,997 (onlyB=1), C2C 4,1cm, out 7,4%/3,2%. Secondary b64 cov 0,998 (onlyB=1), C2C 4,3cm, out 5,4%/4,8%. Throughput: 0,88x / 0,44x vs OpenMVS. Micro-CUDA HABIS; MODS milestone Ronde-3 ditulis.
 - `r7`: DITOLAK. Depth 3,226 mnt (vs 2,653 iter1 = +22% lebih lambat), fusion 2.667.555 pts vs 2.922.546 (−8,7% LEBIH SEDIKIT). Jendela besar = lebih lambat DAN lebih sedikit titik (over-smoothing membunuh match). VONIS: NCC adaptif via jendela-besar CORET permanen; pemenang tetap iter1.
 - RONDE-2 TERCATAT (MODS.md + plan rev 7): pemenang = iter1 (Primary 2.922.546/3,24 mnt = 902rb/mnt; Secondary 1.453.518/1,39 mnt = 1,04J/mnt). Paritas WAKTU tercapai (1,11x/1,86x); sisa gap titik 1,54x/1,30x. Sisa: NCC adaptif.
