@@ -1,7 +1,7 @@
-# COLMAP-Kernel mods — setara Metashape/OpenMVS di RTX 3050 4GB
+# MMSP mods — drone dense engine (MX150 2GB sm_61)
 
-Basis: COLMAP 4.2.1 (`E:\Colmap-Kernel\colmap`, shallow clone tag 4.2.1).
-Dataset acuan: 80 foto DJI nadir, `E:\Dataset_output\Tes-rerun-full`.
+Basis: COLMAP `bd1fcf6` (`<repo>/colmap`, snapshot pristine = commit pertama).
+Dataset acuan: primary site (117 foto DJI nadir) + secondary site (51 foto).
 
 Scope: depth (`patch_match_stereo`) + dense (`stereo_fusion`) SAJA.
 Sparse, mesh (poisson/delaunay), tekstur: tidak disentuh.
@@ -112,7 +112,7 @@ Resume: jalankan `configure-openmvs.ps1` lagi — vcpkg lanjut otomatis
   Flag OFF (SIFTGPU/viewer/python/tests) terverifikasi tak mengubah
   numerik DensifyPointCloud: 0 referensi SiftGPU di `libs/MVS`,
   `apps/DensifyPointCloud`, `apps/InterfaceCOLMAP` (grep 2026-10-11).
-- Prebuilt `C:\OpenMVS` (v2.4.0) GAGAL dipakai: `DensifyPointCloud`
+- Prebuilt `<openmvs-prebuilt>` (v2.4.0) GAGAL dipakai: `DensifyPointCloud`
   mati saat init CUDA (`UtilCUDADevice.h:54`, code 500, named symbol
   not found) — biner tak kompatibel driver/MX150. Lanjut build sumber.
   Data sampingan valid: pairing OpenMVS 2–8 view/ref (mendukung
