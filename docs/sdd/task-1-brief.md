@@ -1,6 +1,6 @@
 # Brief Task 1 (Mod 1) — Single photometric pass
 
-(Sumber: plan `docs/superpowers/plans/2026-10-11-mvs-speed-density.md`, Task 1 verbatim + adaptasi SDD di bawah.)
+(Sumber: plan `docs/plans/2026-10-11-mvs-speed-density.md`, Task 1 verbatim + adaptasi SDD di bawah.)
 
 **Files:**
 - Modify: `colmap/src/colmap/mvs/patch_match_options.h` (+`bool single_pass = false;`), `colmap/src/colmap/mvs/patch_match_options.cc` (+PrintOption, tanpa Check baru), `colmap/src/colmap/controllers/option_manager.cc` (+`AddDefaultOption("PatchMatchStereo.single_pass", &patch_match_stereo->single_pass);` setelah baris 1020), `colmap/src/colmap/mvs/patch_match.cc` (`PatchMatchController::Run()`, :170-207).
@@ -44,4 +44,4 @@ Run ulang label sama sekali lagi; jumlah titik kedua run dalam ±0,1% (bit-ident
 - JANGAN commit (lihat ledger). JANGAN dispatch subagent. JANGAN rebuild saat run aktif (1 GPU, Windows lock) — build dan run strictly sequential.
 - Viewpoint oracle: cek `python3 -c "import numpy, matplotlib"` dulu; bila ada, render okupansi top-down+oblik `fused_singlepass.ply` vs `fused_base.ply` (+ `scene_dense.ply` bila murah); bila tidak ada, catat skip + alasan (keputusan tool di tangan controller).
 - Run ±11 mnt (single pass) melebihi jendela tanpa pengawasan. ATURAN: PINDAHKAN maps ke backup, luncurkan run via background shell, catat shell ID di report, lalu kembalikan NEEDS_CONTEXT dengan shell ID + kriteria lolos; controller verifikasi saat notifikasi tiba. JANGAN tinggalkan run tanpa jejak.
-- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-1-report.md`, balas SINGKAT (<15 baris): Status + angka (waktu depth, titik, VRAM peak, delta vs baseline, hasil determinisme) + path report.
+- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/sdd/task-1-report.md`, balas SINGKAT (<15 baris): Status + angka (waktu depth, titik, VRAM peak, delta vs baseline, hasil determinisme) + path report.

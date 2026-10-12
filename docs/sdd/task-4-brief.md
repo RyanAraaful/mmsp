@@ -1,6 +1,6 @@
 # Brief Task 4 — Confidence floor + bobot prior fusion (CPU saja)
 
-(Sumber: plan `docs/superpowers/plans/2026-10-11-mvs-speed-density.md`, Task 4 verbatim + adaptasi SDD di bawah.)
+(Sumber: plan `docs/plans/2026-10-11-mvs-speed-density.md`, Task 4 verbatim + adaptasi SDD di bawah.)
 
 **Files:**
 - Modify: `colmap/src/colmap/mvs/patch_match_cuda.cu` (filter sweep-terakhir, :1209-1276 — baca dulu regionnya) + opsi baru `filter_min_confidence` (default 0 = mati); `colmap/src/colmap/mvs/fusion.h/.cc` (+`fuse_prior_weight`, default 0 = mati) + registrasi di `option_manager.cc` (temukan blok opsi StereoFusion — bila namanya bukan `AddStereoFusionOptions`, ikuti pola `AddPatchMatchStereoOptions`, catat nama aktual di report).
@@ -34,4 +34,4 @@ JANGAN luncurkan ablasi. Serahkan perintah run-ablate siap + kriteria (satu opsi
 - Aturan kerja pemilik: (1) TDD — RED dulu; (2) ponytail — diff minimal; (3) context7 — hanya API eksternal.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif (cek proses dulu — ablasi tri15/tri65 mungkin masih jalan; bila ragu, tanya controller via NEEDS_CONTEXT).
 - Determinisme operasional ±0,1%. Viewpoint oracle SKIP (tanpa renderer).
-- Report: `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-4-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.
+- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-4-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.

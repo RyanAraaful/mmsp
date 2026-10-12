@@ -1,6 +1,6 @@
 # Brief Task 5 — Overlap I/O-komputasi (ukur dulu, SKIP bila <5%)
 
-(Sumber: plan `docs/superpowers/plans/2026-10-11-mvs-speed-density.md`, Task 5 verbatim + adaptasi SDD di bawah.)
+(Sumber: plan `docs/plans/2026-10-11-mvs-speed-density.md`, Task 5 verbatim + adaptasi SDD di bawah.)
 
 **Files:** Kemungkinan `colmap/src/colmap/mvs/patch_match.cc` (`workspace_mutex_` :472, `thread_pool_` :177) — hanya bila Step 1 membuktikan idle ≥5%.
 
@@ -18,4 +18,4 @@ Prefetch input view-berikut di `io_thread_pool_` selagi sweep berjalan; VRAM bud
 
 - Aturan kerja pemilik: (1) TDD — RED (kode + angka idle) dulu; (2) ponytail — bila ukur <5%, TIDAK ADA KODE adalah jawaban yang benar; (3) context7 — WAJIB bila menyentuh API CUDA (stream/event/pinned memory): resolve + query docs dulu, jangan andalkan ingatan.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif (cek proses colmap dulu; ablasi conf02 mungkin masih jalan — bila ragu NEEDS_CONTEXT).
-- Report: `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-5-report.md`, balas SINGKAT (<15 baris): Status + angka idle + keputusan SKIP/lanjut + path report.
+- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-5-report.md`, balas SINGKAT (<15 baris): Status + angka idle + keputusan SKIP/lanjut + path report.

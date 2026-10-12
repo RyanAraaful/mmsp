@@ -15,7 +15,7 @@
   - Outlier-ratio: sampel 50rb titik/cloud (stride tetap, seed tetap), voxel-hash, jarak NN ke-8; outlier = > median + 3*MAD; laporkan rasio per cloud.
   - Cloud-to-cloud dua arah: sampel 50rb dari A ke B dan sebaliknya (voxel 0,25 m, 27 sel); laporkan mean/median/p90 tiap arah.
 - [ ] **Step 4: Compile + run pasangan Lewoleba** (biner di `E:/dev/Colmap-Kernel/metrics.exe`). Expected: angka keempat metrik tercetak < 5 mnt CPU.
-- [ ] **Step 5: Report** ke `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-7-metrics-report.md` (angka + definisi + asumsi "OpenMVS ≈ acuan"), balas SINGKAT (<15 baris).
+- [ ] **Step 5: Report** ke `E:/dev/Colmap-Kernel/docs/sdd/task-7-metrics-report.md` (angka + definisi + asumsi "OpenMVS ≈ acuan"), balas SINGKAT (<15 baris).
 
 ## Adaptasi SDD (mengikat)
 

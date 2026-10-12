@@ -1,6 +1,6 @@
 # Brief Task 3 — View floor + ablasi sudut (tanpa per-piksel kernel)
 
-(Sumber: plan `docs/superpowers/plans/2026-10-11-mvs-speed-density.md`, Task 3 verbatim + adaptasi SDD di bawah.)
+(Sumber: plan `docs/plans/2026-10-11-mvs-speed-density.md`, Task 3 verbatim + adaptasi SDD di bawah.)
 
 **Files:**
 - Modify: `colmap/src/colmap/mvs/patch_match.cc` (`ReadProblems` cabang `__auto__`, :336-361) — floor: tiap view pertahankan ≥2 tetangga terlemah menurut shared-points walau lolos sudut; hitung + LOG jumlah view yang kena floor.
@@ -31,4 +31,4 @@ JANGAN luncurkan ablasi. Serahkan: konfirmasi tidak ada flag baru + perintah run
 - Aturan kerja pemilik: (1) TDD — RED dulu; (2) ponytail — diff minimal; (3) context7 — hanya API eksternal.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif.
 - Determinisme operasional ±0,1% (tidak dituntut bit-identik). Viewpoint oracle SKIP (tanpa renderer).
-- Report: `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-3-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + path report.
+- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-3-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + path report.

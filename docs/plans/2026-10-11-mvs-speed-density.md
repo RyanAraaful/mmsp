@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++17 + CUDA (sm_61), existing COLMAP `mvs/` classes, PowerShell `.ps1` harness (repo rule: never inline `$`; bash has no coreutils).
 
-**Spec:** `E:/dev/Colmap-Kernel/docs/superpowers/specs/2026-10-11-colmap-mvs-speed-density-design.md`
+**Spec:** `E:/dev/Colmap-Kernel/docs/specs/2026-10-11-colmap-mvs-speed-density-design.md`
 
 ## Global Constraints
 

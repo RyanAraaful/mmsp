@@ -1,9 +1,9 @@
-# SDD ledger — plan: E:\dev\Colmap-Kernel\docs\superpowers\plans\2026-10-11-mvs-speed-density.md
+# SDD ledger — plan: E:\dev\Colmap-Kernel\docs\plans\2026-10-11-mvs-speed-density.md
 
 ## Setup (2026-10-11)
 
 - Workspace root BUKAN git repo; `colmap/` ADALAH git repo (HEAD `bd1fcf6`, shallow clone tag 4.2.1). BASE/HEAD/diff = repo `colmap/`.
-- SDD bash scripts (`sdd-workspace`, `task-brief`, `review-package`) tidak dipakai (bash tanpa coreutils + bukan repo) — adaptasi: brief/report/diff sebagai file di `docs/superpowers/sdd/`.
+- SDD bash scripts (`sdd-workspace`, `task-brief`, `review-package`) tidak dipakai (bash tanpa coreutils + bukan repo) — adaptasi: brief/report/diff sebagai file di `docs/sdd/`.
 - Ruling: tanpa worktree terpisah (scope sequential, satu GPU, satu workspace `dense700/`, file sempit `mvs/`). Biaya worktree > manfaat; risiko konflik paralel nihil karena task sequential.
 - Ruling: reviewer subagent DITIADAKAN atas instruksi pemilik ("anda main agent sebagai verifikator") — controller memverifikasi diff + report langsung. Risiko: review kurang independen; mitigasi: baca diff penuh tiap task + final read-through.
 - Ruling: parameter `model` subagent DIHILANGKAN (aturan harness melarang tebak ID model) — subagent mewarisi model sesi.

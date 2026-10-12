@@ -1,6 +1,6 @@
 # Brief Task 2 (Mod 4) — Coarse-to-fine dengan seed existing-path
 
-(Sumber: plan `docs/superpowers/plans/2026-10-11-mvs-speed-density.md`, Task 2 verbatim + adaptasi SDD di bawah.)
+(Sumber: plan `docs/plans/2026-10-11-mvs-speed-density.md`, Task 2 verbatim + adaptasi SDD di bawah.)
 
 **Files:**
 - Modify: `colmap/src/colmap/mvs/depth_map.h/.cc` (+`void UpsampleNearest(size_t w, size_t h);` — nearest agar depth valid/tidak-valid tidak tercampur; `Rescale` existing hanya downsample via `DownsampleImage`), `colmap/src/colmap/mvs/normal_map.h/.cc` (+fungsi sepadan; Step 1 periksa API-nya), `colmap/src/colmap/mvs/patch_match_options.h/.cc` (+`int pyramid_levels = 0;`), `colmap/src/colmap/controllers/option_manager.cc`, `colmap/src/colmap/mvs/patch_match.cc` (`Run()`).
@@ -39,4 +39,4 @@ JANGAN luncurkan ablasi (notifikasi shell subagent tidak kembali ke controller �
 - Fase A butuh workspace `max_image_size/2` sementara + restore (lihat ledger, ruling scan): pilih yang minimal, catat pilihan + alasan di report.
 - Determinisme operasional = double-run titik ±0,1% (bit-identik TIDAK dituntut).
 - Viewpoint oracle: SKIP (tanpa renderer/Python di box) — proxy: titik + 0 view gugur + per-view counts log fusion.
-- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/superpowers/sdd/task-2-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.
+- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/sdd/task-2-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.
