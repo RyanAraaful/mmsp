@@ -1,0 +1,250 @@
+diff --git a/cmake/FindDependencies.cmake b/cmake/FindDependencies.cmake
+index e26d5e9..2606a38 100644
+--- a/cmake/FindDependencies.cmake
++++ b/cmake/FindDependencies.cmake
+@@ -91,7 +91,9 @@ find_package(Glew ${COLMAP_FIND_TYPE})
+ 
+ find_package(Git)
+ 
+-find_package(CHOLMOD REQUIRED)
++# Optional: SuiteSparse CHOLMOD is GPL-licensed; builds without it fall back
++# to Eigen's simplicial LDLT (COLMAP_NO_CHOLMOD).
++find_package(CHOLMOD)
+ 
+ # Ceres and glog expose gflags::gflags in their interface dependencies, but gflags
+ # only defines the namespaced target when GFLAGS_USE_TARGET_NAMESPACE is ON. Bridge
+diff --git a/src/colmap/controllers/option_manager.cc b/src/colmap/controllers/option_manager.cc
+index e0de129..8cd6868 100644
+--- a/src/colmap/controllers/option_manager.cc
++++ b/src/colmap/controllers/option_manager.cc
+@@ -1011,6 +1011,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
+                    &patch_match_stereo->ncc_sigma);
+   AddDefaultOption("PatchMatchStereo.min_triangulation_angle",
+                    &patch_match_stereo->min_triangulation_angle);
++  AddDefaultOption("PatchMatchStereo.max_triangulation_angle",
++                   &patch_match_stereo->max_triangulation_angle);
+   AddDefaultOption("PatchMatchStereo.incident_angle_sigma",
+                    &patch_match_stereo->incident_angle_sigma);
+   AddDefaultOption("PatchMatchStereo.num_iterations",
+diff --git a/src/colmap/estimators/bundle_adjustment_ceres.cc b/src/colmap/estimators/bundle_adjustment_ceres.cc
+index df15b17..f429369 100644
+--- a/src/colmap/estimators/bundle_adjustment_ceres.cc
++++ b/src/colmap/estimators/bundle_adjustment_ceres.cc
+@@ -112,6 +112,17 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
+ #if CERES_VERSION_MAJOR < 2
+   solver_options.num_linear_solver_threads = -1;
+ #endif  // CERES_VERSION_MAJOR
++#ifdef CERES_NO_SUITESPARSE
++  // Ceres built without SuiteSparse (GPL): default to Eigen sparse algebra
++  // so that SPARSE_* solvers keep working.
++  solver_options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
++  // DIAGNOSTIC (MX150): skip the direct-SPARSE CPU solver entirely.
++  // Suspected crash in SPARSE_SCHUR+EIGEN_SPARSE (+Eigen 5) during global BA;
++  // DENSE_SCHUR is robust for drone-scale projects, ITERATIVE_SCHUR covers
++  // large ones. Revisit after the mapper crash is root-caused.
++  max_num_images_direct_sparse_cpu_solver = 1000001;
++  max_num_images_direct_dense_cpu_solver = 1000000;
++#endif
+ }
+ 
+ std::unique_ptr<ceres::LossFunction>
+diff --git a/src/colmap/mvs/patch_match.cc b/src/colmap/mvs/patch_match.cc
+index 7a6735b..ab522e6 100644
+--- a/src/colmap/mvs/patch_match.cc
++++ b/src/colmap/mvs/patch_match.cc
+@@ -255,6 +255,12 @@ void PatchMatchController::ReadProblems() {
+ 
+   const float min_triangulation_angle_rad =
+       DegToRad(options_.min_triangulation_angle);
++  const bool has_max_triangulation_angle =
++      options_.max_triangulation_angle >= 0.0f;
++  const float max_triangulation_angle_rad =
++      has_max_triangulation_angle
++          ? DegToRad(options_.max_triangulation_angle)
++          : 0.0f;
+ 
+   std::string ref_image_name;
+   FlatHashSet<int> ref_image_idxs;
+@@ -330,8 +336,10 @@ void PatchMatchController::ReadProblems() {
+       std::vector<std::pair<int, int>> src_images;
+       src_images.reserve(overlapping_images.size());
+       for (const auto& image : overlapping_images) {
+-        if (overlapping_triangulation_angles.at(image.first) >=
+-            min_triangulation_angle_rad) {
++        const float angle = overlapping_triangulation_angles.at(image.first);
++        if (angle >= min_triangulation_angle_rad &&
++            (!has_max_triangulation_angle ||
++             angle <= max_triangulation_angle_rad)) {
+           src_images.emplace_back(image.first, image.second);
+         }
+       }
+diff --git a/src/colmap/mvs/patch_match_options.cc b/src/colmap/mvs/patch_match_options.cc
+index 79110e8..401b28e 100644
+--- a/src/colmap/mvs/patch_match_options.cc
++++ b/src/colmap/mvs/patch_match_options.cc
+@@ -55,6 +55,7 @@ void PatchMatchOptions::Print() const {
+   PrintOption(num_samples);
+   PrintOption(ncc_sigma);
+   PrintOption(min_triangulation_angle);
++  PrintOption(max_triangulation_angle);
+   PrintOption(incident_angle_sigma);
+   PrintOption(num_iterations);
+   PrintOption(geom_consistency);
+@@ -84,6 +85,10 @@ bool PatchMatchOptions::Check() const {
+   CHECK_OPTION_GT(ncc_sigma, 0.0f);
+   CHECK_OPTION_GE(min_triangulation_angle, 0.0f);
+   CHECK_OPTION_LT(min_triangulation_angle, 180.0f);
++  if (max_triangulation_angle >= 0.0f) {
++    CHECK_OPTION_LE(max_triangulation_angle, 180.0f);
++    CHECK_OPTION_LE(min_triangulation_angle, max_triangulation_angle);
++  }
+   CHECK_OPTION_GT(incident_angle_sigma, 0.0f);
+   CHECK_OPTION_GT(num_iterations, 0);
+   CHECK_OPTION_GE(geom_consistency_regularizer, 0.0f);
+diff --git a/src/colmap/mvs/patch_match_options.h b/src/colmap/mvs/patch_match_options.h
+index bc6c1f2..6cb26f3 100644
+--- a/src/colmap/mvs/patch_match_options.h
++++ b/src/colmap/mvs/patch_match_options.h
+@@ -49,6 +49,12 @@ struct PatchMatchOptions {
+   // Minimum triangulation angle in degrees.
+   double min_triangulation_angle = 1.0f;
+ 
++  // Maximum triangulation angle in degrees for automatic source image
++  // selection (__auto__). Source images with a larger triangulation angle
++  // percentile are ignored, since wide baselines degrade NCC matching
++  // (drone/nadir datasets). A negative value disables the upper bound.
++  double max_triangulation_angle = -1.0f;
++
+   // Spread of the incident angle likelihood function.
+   double incident_angle_sigma = 0.9f;
+ 
+diff --git a/src/colmap/optim/CMakeLists.txt b/src/colmap/optim/CMakeLists.txt
+index c963409..784ca8a 100644
+--- a/src/colmap/optim/CMakeLists.txt
++++ b/src/colmap/optim/CMakeLists.txt
+@@ -45,8 +45,14 @@ COLMAP_ADD_LIBRARY(
+         colmap_math
+         colmap_util
+         Eigen3::Eigen
+-        CHOLMOD::CHOLMOD
+ )
++# CHOLMOD (SuiteSparse, GPL) is optional: without it the sparse Cholesky
++# solver uses Eigen's simplicial LDLT only (see COLMAP_NO_CHOLMOD).
++if(CHOLMOD_FOUND)
++    target_link_libraries(colmap_optim PUBLIC CHOLMOD::CHOLMOD)
++else()
++    target_compile_definitions(colmap_optim PUBLIC COLMAP_NO_CHOLMOD)
++endif()
+ if(OPENMP_FOUND)
+     target_link_libraries(colmap_optim PUBLIC OpenMP::OpenMP_CXX)
+ endif()
+diff --git a/src/colmap/optim/sparse_cholesky.cc b/src/colmap/optim/sparse_cholesky.cc
+index beaa1c9..0b25f01 100644
+--- a/src/colmap/optim/sparse_cholesky.cc
++++ b/src/colmap/optim/sparse_cholesky.cc
+@@ -35,13 +35,18 @@ namespace colmap {
+ 
+ void SparseCholeskyWithFallbackSolver::AnalyzePattern(
+     const Eigen::SparseMatrix<double>& A) {
++#ifndef COLMAP_NO_CHOLMOD
+   supernodal_.analyzePattern(A);
+   // LDLT pattern is analyzed lazily on first fallback, since the common case
+   // never needs it.
++#else
++  ldlt_.analyzePattern(A);
++#endif
+ }
+ 
+ bool SparseCholeskyWithFallbackSolver::Factorize(
+     const Eigen::SparseMatrix<double>& A) {
++#ifndef COLMAP_NO_CHOLMOD
+   if (!use_ldlt_) {
+     supernodal_.factorize(A);
+     if (supernodal_.info() == Eigen::Success) {
+@@ -52,6 +57,7 @@ bool SparseCholeskyWithFallbackSolver::Factorize(
+     ldlt_.analyzePattern(A);
+     use_ldlt_ = true;
+   }
++#endif
+   ldlt_.factorize(A);
+   return ldlt_.info() == Eigen::Success;
+ }
+@@ -65,12 +71,17 @@ bool SparseCholeskyWithFallbackSolver::Compute(
+ bool SparseCholeskyWithFallbackSolver::Solve(const Eigen::VectorXd& b,
+                                              Eigen::VectorXd* x) const {
+   THROW_CHECK_NOTNULL(x);
++#ifndef COLMAP_NO_CHOLMOD
+   if (use_ldlt_) {
+     x->noalias() = ldlt_.solve(b);
+     return ldlt_.info() == Eigen::Success;
+   }
+   x->noalias() = supernodal_.solve(b);
+   return supernodal_.info() == Eigen::Success;
++#else
++  x->noalias() = ldlt_.solve(b);
++  return ldlt_.info() == Eigen::Success;
++#endif
+ }
+ 
+ }  // namespace colmap
+diff --git a/src/colmap/optim/sparse_cholesky.h b/src/colmap/optim/sparse_cholesky.h
+index 6dab1a4..70661f8 100644
+--- a/src/colmap/optim/sparse_cholesky.h
++++ b/src/colmap/optim/sparse_cholesky.h
+@@ -29,9 +29,11 @@
+ 
+ #pragma once
+ 
+-#include <Eigen/CholmodSupport>
+ #include <Eigen/SparseCholesky>
+ #include <Eigen/SparseCore>
++#ifndef COLMAP_NO_CHOLMOD
++#include <Eigen/CholmodSupport>
++#endif
+ 
+ namespace colmap {
+ 
+@@ -53,9 +55,13 @@ class SparseCholeskyWithFallbackSolver {
+   bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) const;
+ 
+  private:
++#ifndef COLMAP_NO_CHOLMOD
+   Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> supernodal_;
+-  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_;
+   bool use_ldlt_ = false;
++#else
++  // CHOLMOD (GPL) disabled at build time: LDLT-only solver.
++#endif
++  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_;
+ };
+ 
+ }  // namespace colmap
+diff --git a/src/thirdparty/CMakeLists.txt b/src/thirdparty/CMakeLists.txt
+index 48eb529..211fd70 100644
+--- a/src/thirdparty/CMakeLists.txt
++++ b/src/thirdparty/CMakeLists.txt
+@@ -37,8 +37,8 @@ endif()
+ if(FETCH_POSELIB)
+     include(FetchContent)
+     FetchContent_Declare(poselib
+-        URL https://github.com/PoseLib/PoseLib/archive/fa7280fee27f97aff31ae7f98bab7f583fac7d08.zip
+-        URL_HASH SHA256=5408d4ae8ce367cb2f076bc6c5f0f6f78abd3573d2c015304b04e46f23455f5b
++        URL https://github.com/PoseLib/PoseLib/archive/1bb8881f08e68f0b3d9b2ecc411fc15e7766ef1b.zip
++        URL_HASH SHA256=ee46322581c7901fe24e91434eeec27163f820d481cba5faa43d37651fabc8e8
+         ${_fetch_content_declare_args}
+     )
+     message(STATUS "Configuring PoseLib...")
+diff --git a/vcpkg.json b/vcpkg.json
+index 6fcc199..d241837 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -16,8 +16,7 @@
+             "name": "ceres",
+             "features": [
+                 "lapack",
+-                "schur",
+-                "suitesparse"
++                "schur"
+             ]
+         },
+         "eigen3",
