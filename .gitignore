@@ -26,6 +26,8 @@ metrics_*.txt
 *.sqlite
 *.nsys-rep
 *.ncu-rep
+smoke-test/
+smoke-test-gpu/
 
 # Session/state caches
 .opencode/
