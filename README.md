@@ -65,28 +65,8 @@ the frozen dense harness is `scripts/run/run-ablate.ps1`.
 
 ## Contributing
 
-Workflow (enforced on every change):
-
-1. **Scope first** — engine scope is `mvs/` plus its option plumbing;
-   touch a shared function only after grepping all callers, and fix root
-   causes once in shared code.
-2. **Evidence before claims** — new logic needs a measured check first
-   (benchmark numbers, not guesses); one load-bearing issue found means
-   saying so clearly. Ablations go through `scripts/run/run-ablate.ps1`
-   with a label, and every run moves `depth_maps/*.bin` +
-   `normal_maps/*.bin` into a `backup_pre_<label>/` subdirectory first
-   (both map types share file names — separate subdirectories are
-   mandatory). Verdicts (keep/reject) are recorded in `MODS.md` with
-   numbers before any follow-up.
-3. **Smallest complete diff** — no new dependency, abstraction, option or
-   config nobody asked for; mark known limits as
-   `shortcut: <limit>, <when to upgrade>`.
-4. **Portability & hygiene** — PowerShell goes in `.ps1` files (never
-   inline `$`); validate every script with `tools/parsecheck.ps1`;
-   never commit build outputs, binaries, run logs, or credentials
-   (see `.gitignore`); keep the tree GPL/AGPL-free.
-5. **Atomic commits** — upstream baseline, kernel work, scripts, and
-   docs go in separate commits; push only rebased, reviewable history.
+Workflow (scope first, evidence before claims, smallest complete diff,
+atomic commits) — full contract in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
