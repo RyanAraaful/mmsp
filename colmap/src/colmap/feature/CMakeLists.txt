@@ -71,7 +71,7 @@ COLMAP_ADD_LIBRARY(
         faiss
 )
 
-if(GPU_ENABLED)
+if(GPU_ENABLED AND SIFTGPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)

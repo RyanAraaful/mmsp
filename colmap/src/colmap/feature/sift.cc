@@ -39,13 +39,13 @@
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/string.h"
 
-#if defined(COLMAP_GPU_ENABLED)
+#if defined(COLMAP_SIFTGPU_ENABLED)
 #include "thirdparty/SiftGPU/SiftGPU.h"
 #if !defined(COLMAP_GUI_ENABLED)
 // GLEW symbols are already defined by Qt.
 #include <GL/glew.h>
 #endif  // COLMAP_GUI_ENABLED
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_SIFTGPU_ENABLED
 #include "colmap/util/eigen_alignment.h"
 
 #include "thirdparty/VLFeat/covdet.h"
@@ -92,7 +92,8 @@ bool SiftMatchingOptions::Check() const {
 namespace {
 
 void WarnDarknessAdaptivityNotAvailable() {
-  LOG(WARNING) << "Darkness adaptivity only available for GLSL SiftGPU.";
+  LOG(WARNING) << "Darkness adaptivity requires SiftGPU, which is not "
+                  "enabled in this build.";
 }
 
 void ThrowCheckFeatureTypesMatch(const FeatureMatcher::Image& image1,
@@ -548,7 +549,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
   const FeatureExtractionOptions options_;
 };
 
-#if defined(COLMAP_GPU_ENABLED)
+#if defined(COLMAP_SIFTGPU_ENABLED)
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
 // at the same time, since SiftGPU internally uses static variables.
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes_;
@@ -742,7 +743,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
   SiftGPU sift_gpu_;
   std::vector<SiftKeypoint> keypoints_buffer_;
 };
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_SIFTGPU_ENABLED
 
 }  // namespace
 
@@ -754,12 +755,12 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     LOG(INFO) << "Creating Covariant SIFT CPU feature extractor";
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
-#if defined(COLMAP_GPU_ENABLED)
+#if defined(COLMAP_SIFTGPU_ENABLED)
     LOG(INFO) << "Creating SIFT GPU feature extractor";
     return SiftGPUFeatureExtractor::Create(options);
 #else
     return nullptr;
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_SIFTGPU_ENABLED
   } else {
     LOG(INFO) << "Creating SIFT CPU feature extractor";
     return SiftCPUFeatureExtractor::Create(options);
@@ -1306,7 +1307,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   std::shared_ptr<FeatureDescriptorIndex> index2_;
 };
 
-#if defined(COLMAP_GPU_ENABLED)
+#if defined(COLMAP_SIFTGPU_ENABLED)
 
 // Number of floats per feature in the SiftGPU bearing-plus-Jacobian layout:
 // the unit bearing followed by the two columns of d(bearing) / d(pixel).
@@ -1664,7 +1665,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   std::optional<Camera> prev_norm_camera1_;
   std::optional<Camera> prev_norm_camera2_;
 };
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_SIFTGPU_ENABLED
 
 }  // namespace
 
@@ -1675,12 +1676,12 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     return CreateLightGlueONNXFeatureMatcher(options, options.sift->lightglue);
   } else if (options.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
     if (options.use_gpu) {
-#ifdef COLMAP_GPU_ENABLED
+#ifdef COLMAP_SIFTGPU_ENABLED
       LOG(INFO) << "Creating SIFT GPU feature matcher";
       return SiftGPUFeatureMatcher::Create(options);
 #else
       return nullptr;
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_SIFTGPU_ENABLED
     } else {
       LOG(INFO) << "Creating SIFT CPU feature matcher";
       return SiftCPUFeatureMatcher::Create(options);

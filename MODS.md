@@ -420,3 +420,22 @@ Keputusan: **tolak semua non-permisif; dual-license ambil sisi permisif.**
 | cuda port | tidak install apa-apa (verifikasi saja) | toolchain conda tunduk EULA NVIDIA (redistributable, catat untuk distribusi) |
 | suitesparse/cxsparse/cholmod | TIDAK ADA di tree (`vcpkg_installed/.../share` bersih) | terkonfirmasi tersingkir |
 | onnxruntime-gpu (FetchContent biner) | MIT | aman, verifikasi saat fetch selesai |
+
+### Audit lisensi putaran-2 (2026-10-12, bukti fisik + context7)
+
+Metode: baca file LICENSE tiap komponen, flag configure aktual, artefak
+build, strings + link-line `build.ninja` pada `colmap.exe`, docs Eigen
+(MPL-2.0 terkonfirmasi). Temuan load-bearing: `colmap_sift_gpu.lib`
+TERBUKTI ter-link statis ke biner (UNC: riset/non-profit saja) —
+"tak pernah dieksekusi" tidak menolong distribusi. Perbaikan (sudah
+dieksekusi + terverifikasi): hapus `src/thirdparty/SiftGPU/` dan
+`src/thirdparty/LSD/` (AGPL) dari tree; `SIFTGPU_ENABLED` default-OFF
++ gerbang `COLMAP_SIFTGPU_ENABLED` di `sift.cc` (factory use_gpu→nullptr,
+cermin upstream non-GPU); default `LSD_ENABLED`→OFF; export/link yatim
+(`colmap_sift_gpu` di root + `feature/CMakeLists`) digerbang sama.
+Verifikasi: rebuild sukses, `colmap_sift_gpu.lib` hilang, strings
+SiftGPU tinggal 1 (teks warning), LSD nol objek (dari awal), smoke
+CPU-SIFT 3/3 foto lolos (exit 0). Pengecualian tercatat (tanpa alternatif
+realistis): Eigen MPL-2.0 header-only tak-dimodifikasi (karya besar boleh
+permisif, notice dipertahankan) + toolchain CUDA proprietary (redistributable,
+notice NVIDIA wajib pada distribusi biner).
