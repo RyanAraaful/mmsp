@@ -1,0 +1,43 @@
+# Build outputs (regenerable, GBs) — toolchain: configure-mx150.ps1 + build-mx150.ps1
+colmap/build-mx150/
+colmap/build*/
+build*/
+vcpkg_installed/
+_deps/
+
+# Binaries & objects (rebuild from source)
+*.exe
+*.obj
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.exp
+
+# Run outputs (regenerable; evidence lives in MODS.md)
+*.log
+log_*.txt
+vram_*.csv
+metrics_*.txt
+*.pgm
+*.bmp
+*.ply
+*.bin
+*.sqlite
+*.nsys-rep
+*.ncu-rep
+
+# Session/state caches
+.opencode/
+
+# Secrets (audit 2026-10-12 bersih; belt-and-braces)
+.env
+*.pem
+*.key
+*token*
+*secret*
+*credential*
+
+# CMake-generated version stamp (build artifact inside source tree)
+colmap/src/colmap/util/version.cc
+
