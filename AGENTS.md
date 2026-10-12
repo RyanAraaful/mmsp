@@ -1,16 +1,18 @@
-# Colmap-Kernel — wajib dibaca agen tiap sesi
+# MMSP — agent instructions (read every session)
 
-Sumber kebenaran: `MODS.md` (rencana, keputusan, metrik) + `drone-mx150.ini`
-(config aktif). Baca `MODS.md` di awal sesi dan selalu baca ulang setelah
-compaction/ringkasan konteks — chat boleh hilang, file ini tidak.
+Source of truth: `MODS.md` (plan, decisions, metrics) + `CONTRIBUTING.md`
+(workflow contract). Docs may be stale after context compaction — trust
+the files, not memory.
 
-- Scope: MVS dense SAJA (`src/colmap/mvs/` + registrasi flag). Jangan sentuh
-  sparse, mesh, texture, GUI.
-- Target: MX150 2GB sm_61; primer Lewoleba-15AGUSTUS (117 foto), pembanding
-  Midai 14-Agustus-2025 (51 foto) + subset strip ±30 foto untuk iterasi.
-- Lisensi: tanpa GPL/AGPL/non-komersial (seksi lisensi di `MODS.md`).
-  SiftGPU tidak pernah dieksekusi; SfM selalu CPU SIFT (`use_gpu 0`).
-- Ukuran keberhasilan: titik/menit ≥ OpenMVS dengan lubang ≤ OpenMVS,
-  di kedua site. Klaim hanya dari angka benchmark, bukan tebakan.
-- Jangan rebuild saat binary dipakai run (Windows lock). Jangan ubah
-  ekstraktor di tengah baseline (merusak komparabilitas).
+- Scope: SfM-to-dense engine, V1 ends at the fused dense point cloud.
+  Default work area is `colmap/src/colmap/mvs/` plus its option plumbing;
+  sparse internals, meshing, and GUI need approval first.
+- Success metric: points/minute vs OpenMVS DensifyPointCloud with
+  no-hole coverage, on every benchmark site. Claims only from measured
+  numbers, never guesses.
+- License: permissive-only tree (Apache-2.0, see `LICENSE` +
+  `THIRD_PARTY_NOTICES.md`). No GPL/AGPL/non-commercial code in build
+  or runtime. GPU feature extraction is removed; SfM always CPU SIFT.
+- Windows notes: never rebuild while a run uses the binary (file lock);
+  PowerShell goes in `.ps1` files; validate scripts with
+  `tools/parsecheck.ps1`.
