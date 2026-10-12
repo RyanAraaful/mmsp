@@ -1,5 +1,20 @@
-// metrics.cpp — Task 7a: occupancy + outlier-ratio + bidirectional cloud-to-cloud.
-// Single file, C++17, STL only. Usage: metrics.exe <plyA> <plyB> [--pgm <prefix>]
+// metrics.cpp — occupancy + outlier-ratio + bidirectional cloud-to-cloud.
+//
+// Copyright 2026 RyanAraaful
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Task 7a. Single file, C++17, STL only. Usage: metrics.exe <plyA> <plyB> [--pgm <prefix>]
 // (exit 0, numbers on stdout; with --pgm also writes <prefix>_A.pgm + <prefix>_B.pgm)
 // PLY: binary_little_endian, one vertex element with scalar float x,y,z;
 //      any other scalar props and list props are skipped (OpenMVS view lists OK).
