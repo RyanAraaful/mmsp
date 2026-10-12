@@ -78,6 +78,12 @@ if(GPU_ENABLED AND SIFTGPU_ENABLED)
     endif()
 endif()
 
+if(CUDA_ENABLED)
+    # Native CUDA SIFT extractor (default-off stub in Task 1): the .cu joins
+    # colmap_feature directly, so no new exported target is needed.
+    target_sources(colmap_feature PRIVATE sift_gpu_native.cu)
+endif()
+
 if(OPENMP_FOUND)
     target_link_libraries(colmap_feature PRIVATE OpenMP::OpenMP_CXX)
 endif()

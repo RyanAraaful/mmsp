@@ -89,6 +89,10 @@ struct SiftExtractionOptions {
   // Sift implementation is faster.
   bool force_covariant_extractor = false;
 
+  // Whether to use the native CUDA SIFT implementation (Apache-2.0, zero new
+  // dependencies). Default-off: upstream CPU behavior is bit-identical.
+  bool use_gpu_native = false;
+
   // L1_ROOT: L1-normalizes each descriptor followed by element-wise square
   // rooting. This normalization is usually better than standard
   // L2-normalization. See "Three things everyone should know to improve object
@@ -109,6 +113,11 @@ struct SiftExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Create a native CUDA SIFT feature extractor (Task 1: stub that fails
+// cleanly with LOG(FATAL) until Task 2/3 implement the kernels).
+std::unique_ptr<FeatureExtractor> CreateNativeGpuSiftExtractor(
+    const SiftExtractionOptions& options);
+
 struct SiftMatchingOptions {
   // Maximum distance ratio between first and second best match.
   double max_ratio = 0.8;
@@ -121,6 +130,10 @@ struct SiftMatchingOptions {
 
   // Whether to use brute-force instead of faiss based CPU matching.
   bool cpu_brute_force_matcher = false;
+
+  // Whether to use the native CUDA SIFT matcher. Default-off: upstream CPU
+  // behavior is bit-identical.
+  bool use_gpu_native = false;
 
   // Cache for reusing descriptor index for feature matching.
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*

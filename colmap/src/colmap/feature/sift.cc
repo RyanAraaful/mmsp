@@ -29,6 +29,8 @@
 
 #include "colmap/feature/sift.h"
 
+#include "colmap/feature/sift_gpu_native.h"
+
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/math.h"
@@ -74,6 +76,11 @@ bool SiftExtractionOptions::Check() const {
   CHECK_OPTION_GT(peak_threshold, 0.0);
   CHECK_OPTION_GT(edge_threshold, 0.0);
   CHECK_OPTION_GT(max_num_orientations, 0);
+  if (use_gpu_native && estimate_affine_shape) {
+    LOG(ERROR) << "Native GPU SIFT extraction does not support affine shape "
+                  "estimation.";
+    return false;
+  }
   if (domain_size_pooling) {
     CHECK_OPTION_GT(dsp_min_scale, 0);
     CHECK_OPTION_GE(dsp_max_scale, dsp_min_scale);
@@ -754,6 +761,13 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
       options.sift->force_covariant_extractor) {
     LOG(INFO) << "Creating Covariant SIFT CPU feature extractor";
     return CovariantSiftCPUFeatureExtractor::Create(options);
+  } else if (options.sift->use_gpu_native) {
+    // Native CUDA SIFT extractor (default-off stub).
+#if defined(COLMAP_CUDA_ENABLED)
+    return CreateNativeGpuSiftExtractor(*options.sift);
+#else
+    return nullptr;
+#endif
   } else if (options.use_gpu) {
 #if defined(COLMAP_SIFTGPU_ENABLED)
     LOG(INFO) << "Creating SIFT GPU feature extractor";
@@ -1675,7 +1689,11 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
   if (options.type == FeatureMatcherType::SIFT_LIGHTGLUE) {
     return CreateLightGlueONNXFeatureMatcher(options, options.sift->lightglue);
   } else if (options.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
-    if (options.use_gpu) {
+    if (options.sift->use_gpu_native) {
+      // Native CUDA SIFT matcher (default-off stub).
+      LOG(FATAL) << "Native GPU SIFT matcher not implemented";
+      return nullptr;
+    } else if (options.use_gpu) {
 #ifdef COLMAP_SIFTGPU_ENABLED
       LOG(INFO) << "Creating SIFT GPU feature matcher";
       return SiftGPUFeatureMatcher::Create(options);

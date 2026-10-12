@@ -282,6 +282,8 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->sift->dsp_max_scale);
   AddDefaultOption("SiftExtraction.dsp_num_scales",
                    &feature_extraction->sift->dsp_num_scales);
+  AddDefaultOption("SiftExtraction.use_gpu_native",
+                   &feature_extraction->sift->use_gpu_native);
 
   AddDefaultOption("AlikedExtraction.max_num_features",
                    &feature_extraction->aliked->max_num_features);
@@ -343,6 +345,8 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->sift->cross_check);
   AddDefaultOption("SiftMatching.cpu_brute_force_matcher",
                    &feature_matching->sift->cpu_brute_force_matcher);
+  AddDefaultOption("SiftMatching.use_gpu_native",
+                   &feature_matching->sift->use_gpu_native);
   AddDefaultOption("SiftMatching.lightglue_min_score",
                    &feature_matching->sift->lightglue.min_score);
   AddDefaultOption("SiftMatching.lightglue_model_path",
