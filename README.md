@@ -21,9 +21,22 @@ orthomosaics are explicitly non-goals for V1.
 
 - Windows + Visual Studio 2022 (MSVC 19.34+), CUDA toolkit 12.x,
   `sm_61`-capable NVIDIA driver, vcpkg
-- Point `CUDA_PATH` / `CUDA_HOME` / `CUDAToolkit_ROOT` at your toolkit
-  and put its `bin/` on `PATH` (`scripts/setup/configure-mx150.ps1`
-  is an example)
+
+## First-time setup (contributors)
+
+Scripts never hardcode machine paths. Everything machine-specific lives
+in one gitignored file:
+
+```powershell
+Copy-Item env.local.example.ps1 env.local.ps1
+# then fill in your CUDA toolkit, dataset, vcpkg and tool paths
+```
+
+`scripts/env.ps1` (auto-sourced by every script) resolves the repo root
+from its own location and reads your values. Alternatively set
+`MMSP_CUDA_HOME` / `MMSP_LEWOLEBA_ROOT` / `MMSP_MIDAI_ROOT` environment
+variables. Without them, scripts fail fast with a pointer to the template
+instead of cryptic errors.
 
 ## Quickstart
 
