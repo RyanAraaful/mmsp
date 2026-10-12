@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$stereo = "$LewolebaRoot/dense700/stereo"
+$stereo = "$PrimaryRoot/dense700/stereo"
 Write-Host ("stereo/depth=" + @(Get-ChildItem "$stereo/depth_maps/*.bin" -ErrorAction SilentlyContinue).Count + " normal=" + @(Get-ChildItem "$stereo/normal_maps/*.bin" -ErrorAction SilentlyContinue).Count)
 foreach ($d in @('maps_backup_base','backup_pre_pyramid1','backup_pre_tri15','backup_pre_tri65')) {
   $p = "$stereo/$d"
@@ -13,6 +13,6 @@ foreach ($d in @('maps_backup_base','backup_pre_pyramid1','backup_pre_tri15','ba
 }
 Write-Host '--- per-label fused sizes ---'
 foreach ($f in @('fused_base','fused_singlepass','fused_pyramid1','fused_tri15','fused_tri65')) {
-  $p = "$LewolebaRoot/dense700/$f.ply"
+  $p = "$PrimaryRoot/dense700/$f.ply"
   if (Test-Path $p) { Write-Host ("$f " + (Get-Item $p).Length) } else { Write-Host ("$f MISSING") }
 }

@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++17 + CUDA (sm_61), existing COLMAP `mvs/` classes, PowerShell `.ps1` harness (repo rule: never inline `$`; bash has no coreutils).
 
-**Spec:** `E:/dev/Colmap-Kernel/docs/specs/2026-10-11-colmap-mvs-speed-density-design.md`
+**Spec:** `<repo>/docs/specs/2026-10-11-colmap-mvs-speed-density-design.md`
 
 ## Global Constraints
 
@@ -49,7 +49,7 @@ sebelum RED: hapus, ulangi dari RED.
 ### Task 0: Harness freeze + baseline pin
 
 **Files:**
-- Create: `E:/dev/Colmap-Kernel/run-ablate.ps1`
+- Create: `<repo>/run-ablate.ps1`
 - Modify: none.
 
 **Interfaces:**
@@ -58,7 +58,7 @@ sebelum RED: hapus, ulangi dari RED.
 
 - [ ] **Step 1: Konfirmasi repo git colmap + catat hash**
 
-Run: `git -C E:/dev/Colmap-Kernel/colmap status --short` dan `git -C E:/dev/Colmap-Kernel/colmap rev-parse --short HEAD`
+Run: `git -C <repo>/colmap status --short` dan `git -C <repo>/colmap rev-parse --short HEAD`
 Expected: status bersih (atau hanya file mod kita), HEAD tercetak. Bila bukan repo git → tiap task menyimpan backup `.orig` sebelum edit (catat di log task).
 
 - [ ] **Step 2: Tulis `run-ablate.ps1` (parameter Label + ExtraArgs)**
@@ -95,7 +95,7 @@ Bila `options_.single_pass`: photometric loop seperti :184-197 tetapi `photometr
 
 - [ ] **Step 3: Build**
 
-Run: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "E:/dev/Colmap-Kernel/build-mx150.ps1"`
+Run: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<repo>/build-mx150.ps1"`
 Expected: exit 0, `colmap/build-mx150/src/colmap/exe/colmap.exe` baru. Style: samakan sekitarnya (c++.sh bila tersedia).
 
 - [ ] **Step 4: Ablasi full-117**
@@ -215,8 +215,8 @@ Prefetch input view-berikut di `io_thread_pool_` selagi sweep berjalan; VRAM bud
 
 Expected: waktu sweep ≈ ¼; nilai NCC vs `ws1` dari titik + screenshot. Menang → jadikan default harness; kalah → catat dan buang.
 
-### Task 7: Validasi Midai + laporan (prasyarat: SfM Midai)
+### Task 7: Validasi Secondary + laporan (prasyarat: SfM Secondary)
 
-- [ ] **Step 1: Pastikan `sparse` Midai 51 foto ada** (fase openmvs-t2; bila belum → STOP, catat sebagai blocker, bukan failure plan ini).
-- [ ] **Step 2: Run konfigurasi pemenang full Midai**, catat waktu/titik/VRAM + screenshot viewpoint.
-- [ ] **Step 3: Tabel akhir Lewoleba vs OpenMVS + keputusan default tiap flag** → `MODS.md` + revisi plan goal.
+- [ ] **Step 1: Pastikan `sparse` Secondary 51 foto ada** (fase openmvs-t2; bila belum → STOP, catat sebagai blocker, bukan failure plan ini).
+- [ ] **Step 2: Run konfigurasi pemenang full Secondary**, catat waktu/titik/VRAM + screenshot viewpoint.
+- [ ] **Step 3: Tabel akhir Primary vs OpenMVS + keputusan default tiap flag** → `MODS.md` + revisi plan goal.

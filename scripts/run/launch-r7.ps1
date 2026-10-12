@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$stereo = "$LewolebaRoot/dense700/stereo"
+$stereo = "$PrimaryRoot/dense700/stereo"
 $backup = "$stereo/backup_pre_r7"
 New-Item -ItemType Directory -Force "$backup/depth_maps" | Out-Null
 New-Item -ItemType Directory -Force "$backup/normal_maps" | Out-Null

@@ -39,4 +39,4 @@ JANGAN luncurkan ablasi (notifikasi shell subagent tidak kembali ke controller �
 - Fase A butuh workspace `max_image_size/2` sementara + restore (lihat ledger, ruling scan): pilih yang minimal, catat pilihan + alasan di report.
 - Determinisme operasional = double-run titik ±0,1% (bit-identik TIDAK dituntut).
 - Viewpoint oracle: SKIP (tanpa renderer/Python di box) — proxy: titik + 0 view gugur + per-view counts log fusion.
-- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/sdd/task-2-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.
+- Report: tulis LENGKAP ke `<repo>/docs/sdd/task-2-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.

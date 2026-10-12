@@ -1,8 +1,8 @@
-# Report Task 7a — Metrik numerik COLMAP vs OpenMVS (Lewoleba)
+# Report Task 7a — Metrik numerik COLMAP vs OpenMVS (Primary)
 
 ## Status run
-- Tool: `E:/dev/Colmap-Kernel/metrics.cpp` (single file, C++17, STL only) → `E:/dev/Colmap-Kernel/metrics.exe` (cl MSVC 14.34, `/O2`), CLI `metrics.exe <plyA> <plyB>`, exit 0.
-- A (ours): `E:/dev/Lewoleba-15agustus/dense700/fused_ws2.ply` — 2.912.986 pts. B (acuan): `E:/dev/Lewoleba-15agustus/openmvs/scene_dense.ply` — 4.514.363 pts.
+- Tool: `<repo>/metrics.cpp` (single file, C++17, STL only) → `<repo>/metrics.exe` (cl MSVC 14.34, `/O2`), CLI `metrics.exe <plyA> <plyB>`, exit 0.
+- A (ours): `<primary-dataset>/dense700/fused_ws2.ply` — 2.912.986 pts. B (acuan): `<primary-dataset>/openmvs/scene_dense.ply` — 4.514.363 pts.
 - RED: sebelum task ini tidak ada metrics.cpp/exe/angka. GREEN: run 2×, total 106 dtk CPU (< 5 mnt). Tidak commit. Proses `colmap.exe` (PID 2560) yang sedang jalan tidak diganggu (hanya baca dua PLY produk-jadi).
 
 ## Layout PLY persis (dibaca dari byte header, bukan tebakan)
@@ -39,8 +39,8 @@ Jangan gate pada Jaccard. Pakai: holes-proxy onlyB/coverage_A_of_B + C2C A→B (
 
 ## Fix report — ekspor nadir PGM hole-map (owner decision: semua dataset nadir; oblique views dropped)
 - RED: sebelum fix, tidak ada file `nadir_*.pgm` di kedua site (4× Test-Path False).
-- Perubahan (`metrics.cpp` saja, tetap STL-only): CLI baru `metrics.exe <plyA> <plyB> --pgm <prefix>`; tanpa `--pgm` perilaku angka-saja tidak berubah (angka Lewoleba rerun identik s/d 6 desimal). Memakai union bbox + sel 0,5 m yang sudah ada: proyeksi top-down (buang z, baris 0 = y max), `<prefix>_A.pgm` + `<prefix>_B.pgm` biner P5 (isi = putih 255, kosong = hitam 0), dimensi identik per pasangan by construction (satu union bbox). Guard dimensi >20000/px atau >250M px → exit 1.
-- Run 1 Lewoleba (`--pgm E:/dev/Lewoleba-15agustus/nadir`, 104,5 dtk): `pgm_A .../nadir_A.pgm 2445 1937`, `pgm_B .../nadir_B.pgm 2445 1937` — ukuran file identik 4735982 (= 2445×1937+17 header).
-- Run 2 Midai — A=`E:/dev/Midai-14agustus/dense/fused_midai_ws2.ply` (1.465.184 pts), B=`E:/dev/Midai-14agustus/openmvs/scene_dense.ply` (1.890.956 pts), `--pgm E:/dev/Midai-14agustus/nadir` (22,9 dtk): `pgm_A .../nadir_A.pgm 385 483`, `pgm_B .../nadir_B.pgm 385 483` — ukuran identik 185970 (= 385×483+15 header), header P5 terverifikasi. Angka Midai: onlyB 1 sel (holes ≈ 0), coverage_A_of_B 0,9979, outlier A 0,0553 vs B 0,0465, C2C A→B median 0,0423/p90 0,0967 (409 missing), B→A median 0,0356/p90 0,0842 (0 missing) — pola sama seperti Lewoleba (B kotak kecil ~15×6×1,7 m di dalam bbox A ~192×241×324 m).
+- Perubahan (`metrics.cpp` saja, tetap STL-only): CLI baru `metrics.exe <plyA> <plyB> --pgm <prefix>`; tanpa `--pgm` perilaku angka-saja tidak berubah (angka Primary rerun identik s/d 6 desimal). Memakai union bbox + sel 0,5 m yang sudah ada: proyeksi top-down (buang z, baris 0 = y max), `<prefix>_A.pgm` + `<prefix>_B.pgm` biner P5 (isi = putih 255, kosong = hitam 0), dimensi identik per pasangan by construction (satu union bbox). Guard dimensi >20000/px atau >250M px → exit 1.
+- Run 1 Primary (`--pgm <primary-dataset>/nadir`, 104,5 dtk): `pgm_A .../nadir_A.pgm 2445 1937`, `pgm_B .../nadir_B.pgm 2445 1937` — ukuran file identik 4735982 (= 2445×1937+17 header).
+- Run 2 Secondary — A=`<secondary-dataset>/dense/fused_secondary_ws2.ply` (1.465.184 pts), B=`<secondary-dataset>/openmvs/scene_dense.ply` (1.890.956 pts), `--pgm <secondary-dataset>/nadir` (22,9 dtk): `pgm_A .../nadir_A.pgm 385 483`, `pgm_B .../nadir_B.pgm 385 483` — ukuran identik 185970 (= 385×483+15 header), header P5 terverifikasi. Angka Secondary: onlyB 1 sel (holes ≈ 0), coverage_A_of_B 0,9979, outlier A 0,0553 vs B 0,0465, C2C A→B median 0,0423/p90 0,0967 (409 missing), B→A median 0,0356/p90 0,0842 (0 missing) — pola sama seperti Primary (B kotak kecil ~15×6×1,7 m di dalam bbox A ~192×241×324 m).
 - Tidak commit; CPU-only; proses lain tak disentuh.
 - Tanpa perbandingan warna/normal; tanpa ICP; run GPU lain tak tersentuh.

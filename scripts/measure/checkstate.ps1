@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$stereo = "$LewolebaRoot/dense700/stereo"
+$stereo = "$PrimaryRoot/dense700/stereo"
 Write-Host ("stereo/depth_maps=" + @(Get-ChildItem "$stereo/depth_maps/*.bin" -ErrorAction SilentlyContinue).Count)
 Write-Host ("stereo/normal_maps=" + @(Get-ChildItem "$stereo/normal_maps/*.bin" -ErrorAction SilentlyContinue).Count)
 Write-Host ("backup_pre_pyramid1 root=" + @(Get-ChildItem "$stereo/backup_pre_pyramid1/*.bin" -ErrorAction SilentlyContinue).Count)

@@ -4,10 +4,10 @@
 
 ## 1. Yang dibuat
 
-**`E:/dev/Colmap-Kernel/run-ablate.ps1`** (baru, 51 baris, satu-satunya file baru).
+**`<repo>/run-ablate.ps1`** (baru, 51 baris, satu-satunya file baru).
 Parameter: `-Label <nama>` (wajib), `-ExtraArgs '<flags>'` (opsional, di-splat ke
 `patch_match_stereo` tanpa `Invoke-Expression`). Isi meniru `g3-patch700.ps1`:
-CUDA env via `E:/dev/tools/cuda-env`, sampler `nvidia-smi` 5 dtk → `vram_<label>.csv`,
+CUDA env via `<cuda-toolkit>/cuda-env`, sampler `nvidia-smi` 5 dtk → `vram_<label>.csv`,
 flags baseline @700px persis, `stereo_fusion` baseline, ekor
 `Select-String 'Number of fused points|Elapsed time'` + `Get-FileHash`, plus stopwatch
 wall-total. Undistort tidak dijalankan ulang (`dense700/` dipakai ulang).
@@ -24,8 +24,8 @@ Dua deviasi mikro dari g3 (disengaja, tercatat):
 
 ## 2. Step 1 — repo git colmap + hash
 
-- `git -C E:/dev/Colmap-Kernel/colmap rev-parse --short HEAD` → **`bd1fcf6`**
-  (banner biner `--help` mengonfirmasi `COLMAP 4.2.1 Commit bd1fcf6`).
+- `git -C <repo>/colmap rev-parse --short HEAD` → **`bd1fcf6`**
+ (banner biner `--help` mengonfirmasi `COLMAP 4.2.1 Commit bd1fcf6`).
 - `status --short` → dirty oleh **10 file mod goal sebelumnya** (option_manager.cc,
   patch_match.*, bundle_adjustment_ceres.cc, optim/*, cmake/FindDependencies.cmake,
   thirdparty/CMakeLists.txt, vcpkg.json). Tree milik controller; saya tidak menyentuh /
@@ -41,7 +41,7 @@ Dua deviasi mikro dari g3 (disengaja, tercatat):
 - Biner: `colmap.exe patch_match_stereo --help` exit 0 **hanya bila** `cuda-env\bin`
   di PATH (tanpa itu exit `0xC0000135` DLL-not-found) — harness men-set ini, terbukti perlu.
 - `dense700/stereo/patch-match.cfg` sudah `__auto__, 8`; `openmvs/scene_dense.ply` ada
-  (277 MB) sebagai pembanding viewpoint.
+ (277 MB) sebagai pembanding viewpoint.
 
 ## 4. Step 3 — dry-run: TIDAK dijalankan (butuh controller)
 
@@ -50,7 +50,7 @@ Run ±21 menit + GPU tunggal (Windows lock, tidak bisa rebuild/paralel) melebihi
 aman tanpa pengawasan — sesuai brief, saya tidak meluncurkannya. Perintah persis:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "E:/dev/Colmap-Kernel/run-ablate.ps1" -Label base
+powershell -NoProfile -ExecutionPolicy Bypass -File "<repo>/run-ablate.ps1" -Label base
 ```
 
 (dijalankan dari sesi foreground yang ditunggui; tidak bersamaan dengan build.)
@@ -62,7 +62,7 @@ puncak `vram_base.csv` ≈ 133 MB. Beda >5% = RED → investigasi sebelum Task 1
 1. **Viewpoint PNG belum dirender** (`view-nadir-base.png` / `view-oblik-base.png`):
    tidak ada renderer headless di box ini (tanpa build GUI `model_viewer`, tanpa
    CloudCompare/Meshlab CLI). Kandidat perintah dicatat sebagai komentar di skrip
-   (baris 45–50). Perlu controller putuskan tool render sebelum Task 1 butuh screenshot.
+  (baris 45–50). Perlu controller putuskan tool render sebelum Task 1 butuh screenshot.
 2. **Task 1 butuh override fusion `--input_type photometric`** (plan Task 1 Step 4)
    yang belum ada di harness (brief Task 0 hanya Label+ExtraArgs untuk patch).
    Sengaja tidak ditambahkan (ponytail: bukan untuk nanti) —executor Task 1 menambah

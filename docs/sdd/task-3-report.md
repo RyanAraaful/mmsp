@@ -29,7 +29,7 @@ Diff hanya di `ReadProblems` cabang `__auto__` (`patch_match.cc`):
   overlap yang belum kepilih: urutkan semua kandidat overlap by shared-points
   desc (`std::sort`), tambahkan yang terkuat sampai 2.
 - Keputusan (sesuai opsi minimal di brief): **hormati batas bawah
-  (`min_triangulation_angle`, default 1.0°), abaikan batas atas (`max`) khusus
+ (`min_triangulation_angle`, default 1.0°), abaikan batas atas (`max`) khusus
   floor.** Rasional: floor hanya merelaksasi filter Mod1 yang menyebabkan 9
   gugur; guard narrow-baseline upstream tetap utuh.
 - Counter naik hanya bila floor benar-benar menambah ≥1 tetangga (jujur:
@@ -50,11 +50,11 @@ menyentuh semua key lebih dulu.
 ## Step 2 (Build)
 
 - Pra-build: `tasklist /FI "IMAGENAME eq colmap.exe"` → tidak ada proses
-  (cek 2x: sebelum build dan sesudah edit; single GPU, tanpa Windows lock).
+ (cek 2x: sebelum build dan sesudah edit; single GPU, tanpa Windows lock).
 - `build-mx150.ps1` → `[3/3] Linking CXX executable colmap.exe`, exit 0.
   `colmap.exe` baru: 2026-10-11 23:26, 31.260.672 B.
 - Parse check: `colmap.exe patch_match_stereo -h` mencetak opsi (exit via help
-  normal). Catatan: butuh `E:\dev\tools\cuda-env\bin` di PATH, pola sama
+  normal). Catatan: butuh `<cuda-toolkit>\cuda-env\bin` di PATH, pola sama
   seperti skrip build.
 - String `View floor kept >=2 neighbors for %d views...` terkonfirmasi ada di
   binary (cek strings) — kode floor ter-link.
@@ -81,8 +81,8 @@ Hanya `patch_match.cc` region ReadProblems yang disentuh task ini.
 ## Skip / risiko
 
 - Skip: run ablasi + determinisme double-run (milik controller); ctest
-  (TESTS_ENABLED=OFF, di luar scope plan); `<algorithm>` include eksplisit
-  (file sudah pakai `partial_sort`/`min` tanpa include langsung — `std::sort`
+ (TESTS_ENABLED=OFF, di luar scope plan); `<algorithm>` include eksplisit
+ (file sudah pakai `partial_sort`/`min` tanpa include langsung — `std::sort`
   ikut pola existing, build membuktikan cukup).
 - Risiko: view yang floor-nya diisi tetangga bersudut lebar (>max) dapat depth
   lebih berisik di tepi strip — trade-off anti-lubang yang disengaja; ablasi

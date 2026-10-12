@@ -34,7 +34,7 @@ Copy-Item env.local.example.ps1 env.local.ps1
 
 `scripts/env.ps1` (auto-sourced by every script) resolves the repo root
 from its own location and reads your values. Alternatively set
-`MMSP_CUDA_HOME` / `MMSP_LEWOLEBA_ROOT` / `MMSP_MIDAI_ROOT` environment
+`MMSP_CUDA_HOME` / `MMSP_PRIMARY_ROOT` / `MMSP_SECONDARY_ROOT` environment
 variables. Without them, scripts fail fast with a pointer to the template
 instead of cryptic errors.
 
@@ -44,7 +44,7 @@ instead of cryptic errors.
 # 1. build (never rebuild while a run is in progress: Windows file lock)
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/build-mx150.ps1
 
-# 2. dense patch-match + fusion at 700 px (Lewoleba winning flags shown)
+# 2. dense patch-match + fusion at 700 px (Primary winning flags shown)
 colmap patch_match_stereo --workspace_path <dense-workspace> \
   --workspace_format COLMAP --PatchMatchStereo.max_image_size 700 \
   --PatchMatchStereo.gpu_index 0 --PatchMatchStereo.window_radius 3 \

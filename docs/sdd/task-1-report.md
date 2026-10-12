@@ -43,7 +43,7 @@ EXIT=1
 E20261011 22:28:11.241048  3192 base_option_manager.cc:265] Failed to parse options - unrecognised option '--PatchMatchStereo.single_pass'.
 ```
 
-Catatan jebakan: tanpa `E:\dev\tools\cuda-env\bin` di PATH (atau cwd di luar dir exe),
+Catatan jebakan: tanpa `<cuda-toolkit>\cuda-env\bin` di PATH (atau cwd di luar dir exe),
 biner matiUUID 0xC0000135 (STATUS_DLL_NOT_FOUND) tanpa output — bahkan untuk `--help`.
 Itu masalah env, bukan flag. RED sah di atas memakai env harness.
 
@@ -75,8 +75,8 @@ run dengan flag gagal di `--workspace_path required`, bukan unknown-option.
 ## Prasyarat ablasi
 
 - Backup: 234 `.bin` depth + 234 `.bin` normal dipindah ke
-  `E:/dev/Lewoleba-15agustus/maps_backup_base/{depth_maps,normal_maps}/`
-  (stereo/* kosong; restore = pindah balik). Tanpa ini run batal (skip-if-exists).
+  `<primary-dataset>/maps_backup_base/{depth_maps,normal_maps}/`
+ (stereo/* kosong; restore = pindah balik). Tanpa ini run batal (skip-if-exists).
 - Viewpoint oracle: SKIP — tak ada python/numpy/matplotlib (`python3`/`python`
   dua-duanya missing) dan tak ada renderer headless (sesuai catatan Task 0:
   render deferred). Pengganti: jumlah titik + log fusion per-view.

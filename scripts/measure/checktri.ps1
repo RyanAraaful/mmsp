@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$outdir = "$LewolebaRoot"
+$outdir = "$PrimaryRoot"
 foreach ($L in @('tri15','tri65')) {
   Write-Host ("=== " + $L + " ===")
   $lp = "$outdir/log_patch_$L.txt"

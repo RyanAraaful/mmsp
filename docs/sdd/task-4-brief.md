@@ -34,4 +34,4 @@ JANGAN luncurkan ablasi. Serahkan perintah run-ablate siap + kriteria (satu opsi
 - Aturan kerja pemilik: (1) TDD — RED dulu; (2) ponytail — diff minimal; (3) context7 — hanya API eksternal.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif (cek proses dulu — ablasi tri15/tri65 mungkin masih jalan; bila ragu, tanya controller via NEEDS_CONTEXT).
 - Determinisme operasional ±0,1%. Viewpoint oracle SKIP (tanpa renderer).
-- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-4-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.
+- Report: `<repo>/docs/sdd/task-4-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + perintah run siap + path report.

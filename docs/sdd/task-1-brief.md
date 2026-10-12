@@ -25,7 +25,7 @@ Bila `options_.single_pass`: photometric loop seperti :184-197 tetapi `photometr
 
 - [ ] **Step 3: Build**
 
-Run: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "E:/dev/Colmap-Kernel/build-mx150.ps1"`
+Run: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<repo>/build-mx150.ps1"`
 Expected: exit 0, `colmap/build-mx150/src/colmap/exe/colmap.exe` baru. Style: samakan sekitarnya (c++.sh bila tersedia).
 
 - [ ] **Step 4: Ablasi full-117**
@@ -44,4 +44,4 @@ Run ulang label sama sekali lagi; jumlah titik kedua run dalam ±0,1% (bit-ident
 - JANGAN commit (lihat ledger). JANGAN dispatch subagent. JANGAN rebuild saat run aktif (1 GPU, Windows lock) — build dan run strictly sequential.
 - Viewpoint oracle: cek `python3 -c "import numpy, matplotlib"` dulu; bila ada, render okupansi top-down+oblik `fused_singlepass.ply` vs `fused_base.ply` (+ `scene_dense.ply` bila murah); bila tidak ada, catat skip + alasan (keputusan tool di tangan controller).
 - Run ±11 mnt (single pass) melebihi jendela tanpa pengawasan. ATURAN: PINDAHKAN maps ke backup, luncurkan run via background shell, catat shell ID di report, lalu kembalikan NEEDS_CONTEXT dengan shell ID + kriteria lolos; controller verifikasi saat notifikasi tiba. JANGAN tinggalkan run tanpa jejak.
-- Report: tulis LENGKAP ke `E:/dev/Colmap-Kernel/docs/sdd/task-1-report.md`, balas SINGKAT (<15 baris): Status + angka (waktu depth, titik, VRAM peak, delta vs baseline, hasil determinisme) + path report.
+- Report: tulis LENGKAP ke `<repo>/docs/sdd/task-1-report.md`, balas SINGKAT (<15 baris): Status + angka (waktu depth, titik, VRAM peak, delta vs baseline, hasil determinisme) + path report.

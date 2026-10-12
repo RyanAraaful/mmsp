@@ -56,15 +56,15 @@ SEBELUM implementasi method, build gagal persis seperti brief:
   pilih minimal):** rebuild `CachedWorkspace` coarse lalu restore fine via helper
   bersama. Alasan: `options_` controller adalah member `const` (mutasi literal
   tak mungkin) dan dim model dikunci saat konstruksi `Workspace`
-  (`workspace.cc:44-48`) — rebuild tak terhindarkan; satu helper = diff terkecil,
+ (`workspace.cc:44-48`) — rebuild tak terhindarkan; satu helper = diff terkecil,
   tanpa deklarasi header baru. PMVS import dilewati saat rebuild (sudah dikerjakan
   `ReadWorkspace` awal; path identik).
 - **Guard:** `use_pyramid = pyramid_levels>=1 && geom_consistency && !single_pass
   && max_image_size>0`. Alasan tiap syarat:
   - `!single_pass` (temuan desain): di bawah `single_pass`, fase B menulis file
     `.photometric.bin` yang SAMA dengan hasil upsample → `skip-if-exists`
-    (`patch_match.cc:427-431`) akan me-no-op-kan seluruh fase B diam-diam
-    (output = coarse yang diupsample, disajikan sebagai final). Karena pass
+   (`patch_match.cc:427-431`) akan me-no-op-kan seluruh fase B diam-diam
+   (output = coarse yang diupsample, disajikan sebagai final). Karena pass
     fotometrik mengabaikan seed total (init acak), kombinasi itu murni rugi/
     salah — maka piramid nonaktif dan perilaku `single_pass` murni dipertahankan.
     Ini bentuk "fase A hormati `single_pass`" dari ruling T1–T2 yang tidak
@@ -99,10 +99,10 @@ pindahkan SEMUA `.bin`, jangan hapus; fase A tulis photometric, fase B tulis
 geometric, keduanya harus fresh):
 
 ```powershell
-New-Item -ItemType Directory -Force E:\dev\Lewoleba-15agustus\dense700\stereo\backup_pre_pyramid1 | Out-Null
-Move-Item E:\dev\Lewoleba-15agustus\dense700\stereo\depth_maps\*.bin E:\dev\Lewoleba-15agustus\dense700\stereo\backup_pre_pyramid1\
-Move-Item E:\dev\Lewoleba-15agustus\dense700\stereo\normal_maps\*.bin E:\dev\Lewoleba-15agustus\dense700\stereo\backup_pre_pyramid1\
-powershell -NoProfile -ExecutionPolicy Bypass -File E:/dev/Colmap-Kernel/run-ablate.ps1 -Label pyramid1 -ExtraArgs '--PatchMatchStereo.pyramid_levels 1'
+New-Item -ItemType Directory -Force <primary-dataset>\dense700\stereo\backup_pre_pyramid1 | Out-Null
+Move-Item <primary-dataset>\dense700\stereo\depth_maps\*.bin <primary-dataset>\dense700\stereo\backup_pre_pyramid1\
+Move-Item <primary-dataset>\dense700\stereo\normal_maps\*.bin <primary-dataset>\dense700\stereo\backup_pre_pyramid1\
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>/run-ablate.ps1 -Label pyramid1 -ExtraArgs '--PatchMatchStereo.pyramid_levels 1'
 ```
 
 Fusion default harness (`--input_type geometric`) sudah benar (fase B menulis
@@ -133,7 +133,7 @@ cermin Task 1; negatif berperilaku 0 via guard `>=1`), `controllers/option_manag
   hanya lewat review + build — risiko sisa kecil: off-by-one tepi pada aspek
   non-2:1, akan terlihat sebagai titik anjlok di ablasi).
 - Kombinasi `pyramid_levels 1 + single_pass 1` = fallback `single_pass` murni
-  (by design, lihat alasan skip-if-exists) — jangan ablasi kombinasi itu.
+ (by design, lihat alasan skip-if-exists) — jangan ablasi kombinasi itu.
 - `pyramid_levels > 1` diperlakukan = 1 (satu level coarse, sesuai brief).
 - Jika `dense700/stereo` masih berisi maps `singlepass` (photometric saja),
   backup-semua-`.bin` di atas tetap prasyarat yang benar.

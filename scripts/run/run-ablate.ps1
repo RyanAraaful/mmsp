@@ -12,7 +12,7 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
-if ([string]::IsNullOrEmpty($Workspace)) { $Workspace = "$LewolebaRoot/dense700" }
+if ([string]::IsNullOrEmpty($Workspace)) { $Workspace = "$PrimaryRoot/dense700" }
 $colmap = $ColmapExe
 $dense = $Workspace
 $outdir = Split-Path $dense -Parent

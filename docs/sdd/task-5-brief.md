@@ -18,4 +18,4 @@ Prefetch input view-berikut di `io_thread_pool_` selagi sweep berjalan; VRAM bud
 
 - Aturan kerja pemilik: (1) TDD — RED (kode + angka idle) dulu; (2) ponytail — bila ukur <5%, TIDAK ADA KODE adalah jawaban yang benar; (3) context7 — WAJIB bila menyentuh API CUDA (stream/event/pinned memory): resolve + query docs dulu, jangan andalkan ingatan.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif (cek proses colmap dulu; ablasi conf02 mungkin masih jalan — bila ragu NEEDS_CONTEXT).
-- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-5-report.md`, balas SINGKAT (<15 baris): Status + angka idle + keputusan SKIP/lanjut + path report.
+- Report: `<repo>/docs/sdd/task-5-report.md`, balas SINGKAT (<15 baris): Status + angka idle + keputusan SKIP/lanjut + path report.

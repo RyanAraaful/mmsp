@@ -4,7 +4,7 @@ Status: **SKIP — no code written, no build, no commit.** Step 1 (measurement +
 
 ## 1. Method (no code, log only)
 
-Source: `E:/dev/Lewoleba-15agustus/log_patch_tri65.txt` (pyramid1/tri65 full-117 run, UTF-16LE, 13811 clean lines), parsed with PowerShell timestamp diffs (same-day, no midnight wrap). Denominator: `timer.cc:90 Elapsed time: 14.380 [minutes]` = **862.8 s**. No `colmap` process running during analysis; nothing built, launched, or committed. Working tree left untouched.
+Source: `<primary-dataset>/log_patch_tri65.txt` (pyramid1/tri65 full-117 run, UTF-16LE, 13811 clean lines), parsed with PowerShell timestamp diffs (same-day, no midnight wrap). Denominator: `timer.cc:90 Elapsed time: 14.380 [minutes]` = **862.8 s**. No `colmap` process running during analysis; nothing built, launched, or committed. Working tree left untouched.
 
 ## 2. Numbers
 

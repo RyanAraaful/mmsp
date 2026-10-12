@@ -25,7 +25,7 @@ Ubah (4 file, vertical slice penuh):
   `double max_triangulation_angle = -1.0f` (-1 = mati, default off,
   perilaku upstream tidak berubah).
 - `src/colmap/mvs/patch_match_options.cc` — `PrintOption` + `Check`
-  (0–180, harus >= min bila aktif).
+ (0–180, harus >= min bila aktif).
 - `src/colmap/controllers/option_manager.cc` —
   `AddDefaultOption("PatchMatchStereo.max_triangulation_angle", ...)`
   sehingga flag CLI `--PatchMatchStereo.max_triangulation_angle` hidup.
@@ -118,10 +118,10 @@ Resume: jalankan `configure-openmvs.ps1` lagi — vcpkg lanjut otomatis
   Data sampingan valid: pairing OpenMVS 2–8 view/ref (mendukung
   `__auto__` 6 kita).
 - Patch kompat-build (BUKAN custom perilaku): fork poselib OpenMVS
-  (`cdcseacave/PoseLib ccdd2f6`) kena penyakit deduksi Eigen 5 + MSVC
+ (`cdcseacave/PoseLib ccdd2f6`) kena penyakit deduksi Eigen 5 + MSVC
   yang sama → patch forwarding-identik di
   `buildtrees/.../jacobian_accumulator.h` (backup di
-  `E:\dev\tools\poselib-eigen5-fix\`), numerik tak berubah. Sumber
+  `<cuda-toolkit>\poselib-eigen5-fix\`), numerik tak berubah. Sumber
   OpenMVS sendiri tetap stok.
 - Blokir configure: genex `SuiteSparse::SuiteSparseConfig` gagal di
   generate meski target ada (paradoks vcpkg SuiteSparse 7.14, root
@@ -149,9 +149,9 @@ tahap 2 `max_image_size 2000` pakai depth tahap 1 sebagai init,
 2000 + lubang tekstur tertutup. Kernel: dukung baca init maps existing
 di `patch_match.cc` bila belum ada.
 
-### Protokol benchmark (MX150 2GB; primer: Lewoleba 15-AGUSTUS 117 foto,
-sekunder/pembanding: Midai 14-Agustus-2025 51 foto @~80m + subset strip
-Lewoleba ±30 foto untuk iterasi cepat)
+### Protokol benchmark (MX150 2GB; primer: Primary 15-AGUSTUS 117 foto,
+sekunder/pembanding: Secondary  51 foto @~80m + subset strip
+Primary ±30 foto untuk iterasi cepat)
 
 Metrik: waktu depth, waktu fusion, jumlah titik, peak VRAM
 (`nvidia-smi`), lubang visual di atap/jalan. Lawan: COLMAP stok 3.13
@@ -161,10 +161,10 @@ dengan titik ≥ dan lubang ≤.
 
 ## Build (MX150, Windows, MSVC 19.34 + CUDA 12.4 conda, no-admin)
 
-Toolchain: `E:\dev\tools\cuda-env` (micromamba, channel `nvidia/label/cuda-12.4.1`)
+Toolchain: `<cuda-toolkit>\cuda-env` (micromamba, channel `nvidia/label/cuda-12.4.1`)
 + curand fallback dari wheel PyPI (`curand.lib` di-generate via `dumpbin`+`lib.exe`).
 `sm_61` compile-and-run teruji `SM61_OK`. Skrip: `configure-mx150.ps1`, `build-mx150.ps1`.
-vcpkg di `E:\dev\vcpkg` (bootstrap selesai).
+vcpkg di `<vcpkg>` (bootstrap selesai).
 
 ### Patch build-tree `_deps` (terdokumentasi, re-apply bila `build-mx150/_deps` dihapus)
 
@@ -192,7 +192,7 @@ tanpa ambiguitas dengan call `(double,...)` yang sudah jalan).
 
 Ekstraksi 11 mnt + matching 9.3 mnt + mapper 2 mnt (DENSE_SCHUR).
 
-### Milestone 2026-10-11: HEAD-TO-HEAD Lewoleba (jujur, operating point beda)
+### Milestone 2026-10-11: HEAD-TO-HEAD Primary (jujur, operating point beda)
 
 | | COLMAP Mod1 + drone-mx150 | OpenMVS develop a3b6d0d default |
 |---|---|---|
@@ -216,7 +216,7 @@ Total dense 43.03 mnt = **58.226 titik/mnt**, VRAM peak **321MB**.
 
 Vonis run sebelumnya (1400 vs 700) dinyatakan TIDAK RELEVAN (beda kelas
 kerja). Rerun terkontrol `dense700/` dari garis keturunan yang sama:
-117 JPG Lewoleba → `sparse/0` (116/117, CPU SIFT) → undistort
+117 JPG Primary → `sparse/0` (116/117, CPU SIFT) → undistort
 `--max_image_size 700` → PatchMatch 700px. OpenMVS `scene.mvs`
 (InterfaceCOLMAP dari data yang sama) estimasi depth di 700x525
 (`resolution-level 1`). Jadi resolusi depth SAMA; yang beda tinggal
@@ -248,7 +248,7 @@ Implikasi: gap riil di titik operasi sama → lanjut Mod 4
 (coarse-to-fine) + konkurensi 2–3 instance (F8) sebagai penutup gap
 utama.
 
-### Milestone 2026-10-12: VONIS AKHIR optimasi (Tugas 0–6 + Midai)
+### Milestone 2026-10-12: VONIS AKHIR optimasi (Tugas 0–6 + Secondary)
 
 Konfig pemenang (`iter1`, default baru): ws2 + num_iterations 1, yaitu
 pyramid_levels 1 + filter_min_confidence 0.2 + window_step 2 +
@@ -256,7 +256,7 @@ fuse_prior_weight 1.0 + floor ≥2 + max_tri 65 + auto 8. Flag baru (semua
 default-mati = upstream utuh): `single_pass`, `pyramid_levels`,
 `filter_min_confidence`, `fuse_prior_weight`.
 
-Tangga ablasi Lewoleba @700px (117 view):
+Tangga ablasi Primary @700px (117 view):
 
 | Konfig | Depth | Titik | vs baseline |
 |---|---|---|---|
@@ -277,7 +277,7 @@ T5 (overlap I/O) SKIP by design: idle terukur 3,9% < 5%, compute-bound
 91,7%. Determinisme: semua re-run ±0,003–0,02% (< ±0,1%); fusion upstream
 order-nondeterministik (bit-identik TIDAK dituntut).
 
-Midai 51 foto (site kedua, alt ~80m): SfM 50–51/51 (extract 5,45 +
+Secondary 51 foto (site kedua, alt ~80m): SfM 50–51/51 (extract 5,45 +
 match 3,18 + mapper 0,72 mnt). Head-to-head @700px:
 
 | | COLMAP iter1 | OpenMVS develop |
@@ -288,8 +288,8 @@ match 3,18 + mapper 0,72 mnt). Head-to-head @700px:
 
 Metrik numerik (`metrics.cpp`, STL-only, tanpa dependensi): okupansi 0,5m,
 outlier NN-8 (median+3MAD), C2C dua arah 50rb sampel, asumsi eksplisit
-OpenMVS ≈ acuan. Lewoleba: coverage kita atas acuan 0,995 (onlyB=2 sel),
-C2C A→B median 4,4cm/p90 11cm, outlier 7,6% vs 2,9%. Midai: coverage 0,998,
+OpenMVS ≈ acuan. Primary: coverage kita atas acuan 0,995 (onlyB=2 sel),
+C2C A→B median 4,4cm/p90 11cm, outlier 7,6% vs 2,9%. Secondary: coverage 0,998,
 C2C 4,2cm, outlier 5,5% vs 4,6%. Vonis lubang: TERPENUHI di kedua site.
 Temuan jujur: halo = harga rescue (baseline pra-mod bersih 2,9% tapi
 berlubang 23%; pemenang 0% lubang tapi 7,6% outlier + ekor ekstrem).
@@ -297,9 +297,9 @@ PGM nadir per pasangan di `nadir_{A,B}.bmp`; cek visual manusia DICORET
 atas perintah pemilik ("lupakan") — oracle = numerik penuh.
 
 Vonis vs kriteria goal (titik/mnt ≥ DAN lubang ≤): lubang TERPENUHI di
-kedua site; titik/mnt BELUM tapi dekat — Lewoleba 902rb vs 1,55J (1,7x;
-waktu 1,11x = paritas waktu tercapai), Midai 1,04J vs 2,5J (2,4x; waktu
-1,86x). Determinisme iter1/iter2: −0,011% (Midai menyusul). Tuas logis
+kedua site; titik/mnt BELUM tapi dekat — Primary 902rb vs 1,55J (1,7x;
+waktu 1,11x = paritas waktu tercapai), Secondary 1,04J vs 2,5J (2,4x; waktu
+1,86x). Determinisme iter1/iter2: −0,011% (Secondary menyusul). Tuas logis
 tersisa: NCC adaptif. PopSIFT tetap pending (sparse sudah cukup, tak
 pengaruhi kriteria).
 
@@ -312,7 +312,7 @@ Perubahan kernel (`mvs/` saja, matematika NCC utuh): `SWEEP_THREADS_PER_BLOCK`
 waktu GPU, transfer 3,8 dtk (bukan bottleneck); ncu GAGAL di WDDM
 (detach 2x) → vonis empiris via ablasi + rerun.
 
-| Varian | Lewoleba depth / titik | Midai depth / titik | Vonis |
+| Varian | Primary depth / titik | Secondary depth / titik | Vonis |
 |---|---|---|---|
 | b32 (RED) | 1,975 / 3.356.045 | 1,157 / 1.453.518 | baseline |
 | b64 | 1,916 (−3,0%) / +0,03% | 1,126 (−2,7%) / −0,05% | MENANG UMUM |
@@ -320,10 +320,10 @@ waktu GPU, transfer 3,8 dtk (bukan bottleneck); ncu GAGAL di WDDM
 | reuse (+b64) | 1,932 rerata / aman | — | NETRAL, dipertahankan (VRAM) |
 | launch_bounds | 1,984 (+4,3%) | — | DIBUANG + revert |
 
-Metrik (`metrics.exe`, pemenang kini): Lewoleba reuse2 coverage 0,997
+Metrik (`metrics.exe`, pemenang kini): Primary reuse2 coverage 0,997
 (onlyB=1 sel), C2C A→B med 4,1cm/p90 10cm, outlier 7,4% vs 3,2%.
-Midai b64 coverage 0,998 (onlyB=1), C2C 4,3cm, outlier 5,4% vs 4,8%.
-Throughput kini: Lewoleba 1,37J/mnt vs 1,55J (0,88x), Midai 1,10J vs
+Secondary b64 coverage 0,998 (onlyB=1), C2C 4,3cm, outlier 5,4% vs 4,8%.
+Throughput kini: Primary 1,37J/mnt vs 1,55J (0,88x), Secondary 1,10J vs
 2,52J (0,44x). Micro-CUDA DINYATAKAN HABIS (r7/r3 NCC, block, reuse,
 launch_bounds semua divonis angka); sisa gap hanya via tuas algoritmik
 (red-black/densifikasi, keluar gerbang titik-sama) atau sisi densitas.
@@ -333,17 +333,17 @@ launch_bounds semua divonis angka); sisa gap hanya via tuas algoritmik
 D1 `min_num_pixels` 3→2 (fusion-only): 25,54Jt pts (+660%) tapi SAMPAH —
 bbox ±36km, in_shared 0,73, outlier 13,3%, C2C med 7,3cm p90 61,6cm.
 DITOLAK (throughput 6,3x semu).
-D2 `max_depth_error` 0,05→0,1: Lewoleba 3.563.973 (+6,1%, fusion 0,511)
-outlier 8,98% C2C 4,29cm onlyB=0; Midai 1.489.288 (+2,4%) outlier 5,75%
+D2 `max_depth_error` 0,05→0,1: Primary 3.563.973 (+6,1%, fusion 0,511)
+outlier 8,98% C2C 4,29cm onlyB=0; Secondary 1.489.288 (+2,4%) outlier 5,75%
 C2C 4,36cm onlyB=1. LOLOS umum.
-Midai-r3 (flag r3 penuh + D2, pertama kali diuji di Midai): depth 0,806
+Secondary-r3 (flag r3 penuh + D2, pertama kali diuji di Secondary): depth 0,806
 (−28%!) / 1.721.491 (+15,6%), outlier 7,16% C2C 4,28cm onlyB=1. JUARA
-BARU Midai (0,68x, dari 0,44x). r3 generalisasi sempurna.
+BARU Secondary (0,68x, dari 0,44x). r3 generalisasi sempurna.
 D3 `max_reproj_error` 4→6: titik TURUN 5% di kedua site (relaksasi
-menggabung track) dengan kualitas datar (Lewoleba out 9,21% C2C 4,27cm;
-Midai out 7,31% C2C 4,26cm). DITOLAK umum.
-Juara bertahan: Lewoleba `fused_d2.ply` 3.563.973 (1,476J/mnt = 0,95x),
-Midai `fused_midai_r3.ply` 1.721.491 (1,713J/mnt = 0,68x). Lubang
+menggabung track) dengan kualitas datar (Primary out 9,21% C2C 4,27cm;
+Secondary out 7,31% C2C 4,26cm). DITOLAK umum.
+Juara bertahan: Primary `fused_d2.ply` 3.563.973 (1,476J/mnt = 0,95x),
+Secondary `fused_secondary_r3.ply` 1.721.491 (1,713J/mnt = 0,68x). Lubang
 terpenuhi (onlyB ≤1) di kedua site.
 
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
@@ -356,8 +356,8 @@ Kebijakan kernel: proyek drone (≤ ratusan foto) selalu DENSE_SCHUR;
 SPARSE praktis mati sampai ada SuiteSparse non-GPL atau fix upstream.
 Revisit bila proyek >500 foto.
 `build-mx150/src/colmap/exe/colmap.exe` jalan (`-h` OK).
-Skrip SfM: `sfm-15agustus.ps1` (CPU SIFT `use_gpu 0`, single_camera,
-sequential overlap 10) → `E:\dev\Lewoleba-15agustus\`.
+Skrip SfM: `sfm-primary.ps1` (CPU SIFT `use_gpu 0`, single_camera,
+sequential overlap 10) → `<primary-dataset>\`.
 
 ### Rencana profiling GPU + PopSIFT (setelah baseline CPU jadi)
 Urutan: baseline CPU selesai → integrasi PopSIFT (MPL-2.0) sebagai ablasi
@@ -371,7 +371,7 @@ Urutan: baseline CPU selesai → integrasi PopSIFT (MPL-2.0) sebagai ablasi
    chrono bila nsys tak tersedia.
 3. **Nsight**: `nsight-systems` tidak ada di conda win-64; installer
    resmi butuh admin → CORet. Pengganti: **`cuda-cupti` 12.4 terpasang**
-   (`lib/cupti64_2024.1.1.dll` + `cupti.lib` + header; catat: DLL di
+  (`lib/cupti64_2024.1.1.dll` + `cupti.lib` + header; catat: DLL di
    `lib\`, bukan `bin\` — tambah ke PATH saat run profiler) +
    instrumentasi CUDA events manual.
    Target: temukan 1 bagian terlambat, optimasi itu dulu (bukan tebak).

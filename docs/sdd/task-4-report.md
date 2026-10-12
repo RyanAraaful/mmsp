@@ -9,7 +9,7 @@ E20261011 ... base_option_manager.cc:265] Failed to parse options - unrecognised
 E20261011 ... base_option_manager.cc:265] Failed to parse options - unrecognised option '--StereoFusion.fuse_prior_weight'.        EXIT=1
 ```
 
-(Note: first attempt without CUDA `PATH` failed with `0xC0000135` DLL launch error — not a valid RED; re-ran with `E:\dev\tools\cuda-env\bin` on PATH like `run-ablate.ps1` does.)
+(Note: first attempt without CUDA `PATH` failed with `0xC0000135` DLL launch error — not a valid RED; re-ran with `<cuda-toolkit>\cuda-env\bin` on PATH like `run-ablate.ps1` does.)
 Bad-behavior record to beat: baseline 819,366 pts / 20.9 min, flat areas holed (tri65: 886,854 pts / 15.4 min).
 
 ## Step 1 — Reject invariants (read before implementing)
@@ -48,7 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File run-ablate.ps1 -Label conf02
 ```
 Then, only if points rise without noise, fusion prior — HARNESS GAP: `run-ablate.ps1:55` fusion call takes no ExtraArgs, so either extend the harness with a fusion-args passthrough or run fusion manually, e.g.:
 ```
-colmap.exe stereo_fusion --workspace_path E:\dev\Lewoleba-15agustus\dense700 --workspace_format COLMAP --input_type geometric --output_path E:\dev\Lewoleba-15agustus\dense700\fused_prior05.ply --StereoFusion.max_image_size 700 --StereoFusion.min_num_pixels 3 --StereoFusion.max_reproj_error 4.0 --StereoFusion.max_depth_error 0.05 --StereoFusion.max_normal_error 20.0 --StereoFusion.check_num_images 30 --StereoFusion.cache_size 4 --StereoFusion.fuse_prior_weight 0.5
+colmap.exe stereo_fusion --workspace_path <primary-dataset>\dense700 --workspace_format COLMAP --input_type geometric --output_path <primary-dataset>\dense700\fused_prior05.ply --StereoFusion.max_image_size 700 --StereoFusion.min_num_pixels 3 --StereoFusion.max_reproj_error 4.0 --StereoFusion.max_depth_error 0.05 --StereoFusion.max_normal_error 20.0 --StereoFusion.check_num_images 30 --StereoFusion.cache_size 4 --StereoFusion.fuse_prior_weight 0.5
 ```
 Pass criteria: points > tri65 886,854 with no new visual noise on roof/vegetation screenshots; any noise = revert that option. Suggested ladder: conf 0.2 → 0.4; prior 0.5 → 1.0. Determinism: double-run point count within ±0.1%.
 

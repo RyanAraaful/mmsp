@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$dm = "$LewolebaRoot/dense700/stereo/depth_maps"
+$dm = "$PrimaryRoot/dense700/stereo/depth_maps"
 $files = Get-ChildItem "$dm/*.bin" | Sort-Object LastWriteTime
 Write-Host ("count=" + $files.Count)
 $photo = ($files | Where-Object { $_.Name -like '*photometric*' }).Count
@@ -12,9 +12,9 @@ if ($files.Count -gt 0) {
   Write-Host ("span_min=" + (($files[-1].LastWriteTime - $files[0].LastWriteTime).TotalMinutes))
 }
 Write-Host '--- fusion head (input type) ---'
-Get-Content "$LewolebaRoot/log_fusion_singlepass.txt" -TotalCount 8
+Get-Content "$PrimaryRoot/log_fusion_singlepass.txt" -TotalCount 8
 Write-Host '--- fusion points/time ---'
-Select-String 'Number of fused points|Elapsed time' "$LewolebaRoot/log_fusion_singlepass.txt"
+Select-String 'Number of fused points|Elapsed time' "$PrimaryRoot/log_fusion_singlepass.txt"
 Write-Host '--- patch log linecount + gugur check ---'
-(Get-Content "$LewolebaRoot/log_patch_singlepass.txt").Count
-Select-String 'Ignoring reference image|ERROR|Failed' "$LewolebaRoot/log_patch_singlepass.txt" | Select-Object -First 5
+(Get-Content "$PrimaryRoot/log_patch_singlepass.txt").Count
+Select-String 'Ignoring reference image|ERROR|Failed' "$PrimaryRoot/log_patch_singlepass.txt" | Select-Object -First 5

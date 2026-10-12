@@ -47,7 +47,7 @@ request. The project source of truth for plans and benchmark evidence is
 ## Workflow for changes
 
 1. **Ablations** go through the frozen harness
-   (`scripts/run/run-ablate.ps1`) with a label. Every run moves
+  (`scripts/run/run-ablate.ps1`) with a label. Every run moves
    `depth_maps/*.bin` + `normal_maps/*.bin` into a
    `backup_pre_<label>/` subdirectory first (both map types share file
    names — separate subdirectories are mandatory).
@@ -67,7 +67,7 @@ request. The project source of truth for plans and benchmark evidence is
 
 - New non-trivial logic (a branch, loop, parser, numeric or GPU code)
   needs a check that fails before the fix and passes after
-  (red-green). Trivial changes need none.
+ (red-green). Trivial changes need none.
 - Run the relevant existing checks (`ctest` for touched C++ modules
   where available) and quote their output as evidence in your PR.
 - Benchmarks must report: configuration flags, wall time, point count,
@@ -83,7 +83,7 @@ request. The project source of truth for plans and benchmark evidence is
   the body when it is not obvious; reference `MODS.md` verdicts.
 - Push rebased, reviewable history (no merge commits on `main`).
 - PR description must include: what changed and why, evidence
-  (numbers/logs), what was skipped or not checked, and risks the
+ (numbers/logs), what was skipped or not checked, and risks the
   reviewer must know. A PR without evidence is not reviewable.
 
 ## Reporting issues

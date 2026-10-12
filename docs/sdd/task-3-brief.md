@@ -31,4 +31,4 @@ JANGAN luncurkan ablasi. Serahkan: konfirmasi tidak ada flag baru + perintah run
 - Aturan kerja pemilik: (1) TDD — RED dulu; (2) ponytail — diff minimal; (3) context7 — hanya API eksternal.
 - JANGAN commit. JANGAN dispatch subagent. JANGAN rebuild saat run aktif.
 - Determinisme operasional ±0,1% (tidak dituntut bit-identik). Viewpoint oracle SKIP (tanpa renderer).
-- Report: `E:/dev/Colmap-Kernel/docs/sdd/task-3-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + path report.
+- Report: `<repo>/docs/sdd/task-3-report.md`, balas SINGKAT (<15 baris): Status + RED/BUILD evidence + path report.

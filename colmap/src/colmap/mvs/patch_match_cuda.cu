@@ -54,7 +54,7 @@
 
 // Sweep block width: more resident warps per SM on small GPUs (e.g. MX150
 // sm_61, 3 SMs). Math is unchanged, only the thread-to-column mapping.
-// shortcut: 64 pilihan umum (128 menang Lewoleba tapi kalah Midai r5).
+// shortcut: 64 pilihan umum (128 menang Primary tapi kalah Secondary r5).
 #define SWEEP_THREADS_PER_BLOCK 64
 
 // We must not include "util/math.h" to avoid any Eigen includes here,

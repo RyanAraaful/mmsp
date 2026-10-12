@@ -134,7 +134,7 @@ Applies to (copyright lines verified in-tree):
   copyright file).
 - OpenEXR/TIFF/PNG/zlib/bzip2/LZMA/zstd and similar image/codec
   helpers pulled in via vcpkg/OpenImageIO — all permissive
-  (BSD/MIT/Zlib-style); full texts ship in their vcpkg ports.
+ (BSD/MIT/Zlib-style); full texts ship in their vcpkg ports.
 
 ## Toolchain (not distributed as source)
 

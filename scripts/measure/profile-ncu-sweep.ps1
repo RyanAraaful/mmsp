@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
 $ncu = "$NcuExe"
 $colmap = "$ColmapExe"
-$dense = "$LewolebaRoot\dense700"
-$outdir = "$LewolebaRoot"
+$dense = "$PrimaryRoot\dense700"
+$outdir = "$PrimaryRoot"
 $stereo = "$dense\stereo"
 $backup = "$stereo\backup_pre_ncu"
 New-Item -ItemType Directory -Force "$backup\depth_maps" | Out-Null

@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '../env.ps1')
 $omvsBin = "$OpenMVSRoot/build-mx150/bin/vc17/x64"
-$proj = "$MidaiRoot"
+$proj = "$SecondaryRoot"
 $work = "$proj/openmvs"
 mkdir $work -Force | Out-Null
 Copy-Item "$CudaEnv/bin/cudart64_12.dll", "$CudaEnv/bin/curand64_10.dll" "$omvsBin/" -Force

@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../env.ps1')
-$stereo = "$LewolebaRoot/dense700/stereo"
+$stereo = "$PrimaryRoot/dense700/stereo"
 $backup = "$stereo/backup_pre_pyramid1"
 # Depth/normal .bin share filenames -> separate subdirs (flat dir collides).
 New-Item -ItemType Directory -Force "$backup/depth_maps" | Out-Null

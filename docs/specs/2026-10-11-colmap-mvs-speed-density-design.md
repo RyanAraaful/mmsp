@@ -6,7 +6,7 @@ Tanggal: 2026-10-11. Status: disetujui pemilik untuk ditulis; belum boleh bangun
 
 Kernel dense COLMAP (`patch_match_stereo` + `stereo_fusion`) kalah telak dari
 OpenMVS `DensifyPointCloud` pada foto drone DJI nadir di titik operasi yang
-sama (@700px, 117 foto Lewoleba, GPU MX150 2GB): COLMAP 819.366 titik dalam
+sama (@700px, 117 foto Primary, GPU MX150 2GB): COLMAP 819.366 titik dalam
 20,90 mnt (~39rb titik/mnt) vs OpenMVS 4.514.363 titik dalam 2,91 mnt
 (~1,55jt titik/mnt) — gap ~40x throughput, 5,5x titik. Duel 1400-vs-700
 sebelumnya dinyatakan TIDAK RELEVAN. Sumber angka: `MODS.md` (milestone
@@ -20,12 +20,12 @@ murni organisasi algoritma, bukan CPU-vs-GPU.
 
 ## Goals
 
-1. Waktu depth+fusion @700px Lewoleba turun orde besar (target arah: paritas
+1. Waktu depth+fusion @700px Primary turun orde besar (target arah: paritas
    OpenMVS ~3 mnt; ambang "cukup" final ditentukan pemilik setelah Mod 1–2).
 2. Titik naik orde besar di resolusi sama (arah: paritas ~4,5jt; tanpa
    menambah lubang di atap/jalan/strip tepi).
 3. Tiap mod terbukti angka via ablasi langsung di full 117 @700px, lalu
-   Midai 51 foto. Subset strip ±30 (sempat di wacana) DICORET atas koreksi
+   Secondary 51 foto. Subset strip ±30 (sempat di wacana) DICORET atas koreksi
    pemilik 2026-10-11 — tanpa subset, tanpa regresi @1400px untuk sekarang.
 4. Peak VRAM <1,5GB selalu; 0 OOM di 117 view; fallback deterministik.
    Panggilan penulis: ukur high-water `nvidia-smi` sampling 5dtk + puncak
@@ -57,11 +57,11 @@ murni organisasi algoritma, bukan CPU-vs-GPU.
 ## Constraints
 
 - Scope kode: `colmap/src/colmap/mvs/` + registrasi flag
-  (`controllers/option_manager.cc`, `mvs/patch_match_options.*`) saja.
+ (`controllers/option_manager.cc`, `mvs/patch_match_options.*`) saja.
 - Lisensi: tanpa GPL/AGPL/non-komersial masuk build/eksekusi (`MODS.md`
   seksi lisensi). SiftGPU tidak dieksekusi.
-- Target: MX150 2GB sm_61; dataset primer Lewoleba-15AGUSTUS (117 foto),
-  pembanding Midai 14-Agustus-2025 (51 foto).
+- Target: MX150 2GB sm_61; dataset primer Primary-Site (117 foto),
+  pembanding Secondary (51 foto).
 - Shell repo: bash tanpa coreutils — bungkus PowerShell via file `.ps1`,
   jangan inline `$`. Jangan rebuild saat biner dipakai run (Windows lock).
 - Klaim hanya dari angka benchmark + CUPTI/CUDA-events, bukan aritmetika.
@@ -69,7 +69,7 @@ murni organisasi algoritma, bukan CPU-vs-GPU.
 ## Cara kerja OpenMVS yang diporting (hasil bedah read-only)
 
 1. Piramid coarse-to-fine (2 sublevel): depth kasar jadi prior level halus
-   (upsample nearest agar depth/normal/view-ID utuh); init dari sparse.
+  (upsample nearest agar depth/normal/view-ID utuh); init dari sparse.
 2. View adaptif: cap global 8 + skor sudut (Gaussian ~12°) + skala + ROI;
    per-piksel ≤4 view tersimpan, sampling CDF, top-K.
 3. Checkerboard red-black paralel penuh per piksel (256 thread/blok).
@@ -93,13 +93,13 @@ murni organisasi algoritma, bukan CPU-vs-GPU.
    di `patch_match.cc`; depth kasar sebagai prior (bukan acak). Dibangun di
    atas hasil Mod 1 (tiap level memanggil single-pass).
 3. **View adaptif per-piksel + floor anti-kosong**: cap + skor sudut/skala
-   (ganti top-N shared-points buta), CDF sampling; ablasi wajib 15° vs 65°
+  (ganti top-N shared-points buta), CDF sampling; ablasi wajib 15° vs 65°
    @700px (baseline 819rb diukur pada 65°). Panggilan penulis: floor = tiap
    view pertahankan ≥2 tetangga terlemah menurut skor walau lolos sudut;
    view tanpa shared-points tetap gugur + log.
 4. **Confidence terkalibrasi + prior-virtual di fusion** (`mvs/fusion.cc`,
    `patch_match_cuda.cu` filter sweep-terakhir): ganti tolak-biner
-   (`kMinVar`, konsisten≥2, geom≤1px) dengan skor+lantai; prior intra-map
+  (`kMinVar`, konsisten≥2, geom≤1px) dengan skor+lantai; prior intra-map
    untuk permukaan koheren miskin view.
 5. **Konkurensi 2–3 instance + prefetch** (F8): VRAM headroom ada (133MB <<
    2GB); I/O overlap agar idle antar-view <10%; fallback sekuensial bila
@@ -135,7 +135,7 @@ okupansi top-down (sel kosong = lubang), outlier-ratio jarak
 tetangga-terdekat, cloud-to-cloud distance dua arah vs `scene_dense`
 OpenMVS (asumsi eksplisit: OpenMVS ≈ acuan, bukan kebenaran absolut) —
 dihitung identik untuk kedua kubu tanpa dependensi baru; plus 6 screenshot
-sudut tetap oleh manusia SEKALI di akhir sebelum vonis. Lolos → Midai.
+sudut tetap oleh manusia SEKALI di akhir sebelum vonis. Lolos → Secondary.
 REVISI 2026-10-12 (dataset semua-nadir; CLI CC tak bisa render): oblik
 dicoret, nadir = PGM hole-map dari metrics.cpp (union bbox, langsung
 sebanding) untuk tiap pasangan cloud; tanpa screenshot GUI.
