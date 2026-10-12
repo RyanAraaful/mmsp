@@ -413,7 +413,8 @@ Keputusan: **tolak semua non-permisif; dual-license ambil sisi permisif.**
 | jasper (field kosong) | JasPer License 2.0 (MIT-style, permisif) | aman |
 | eigen3 | `MPL-2.0` | aman (copyleft level-file; static-link tidak menular) |
 | openblas, lapack-reference (`BSD-3-Clause-Open-MPI`) | BSD | aman |
-| gklib, metis, openimageio, ceres | `Apache-2.0` | aman |
+| gklib, metis, openimageio | `Apache-2.0` | aman |
+| ceres | `BSD-3-Clause` (terverifikasi dari file copyright vcpkg — BUKAN Apache; baris lama salah) | aman |
 | tiff (`libtiff`), bzip2 (`bzip2-1.0.6`), libpng (`libpng-2.0`), zlib/zstd-runtime/minizip-ng (`Zlib`), liblzma (`0BSD`) | permisif | aman |
 | glew (field kosong) | BSD/MIT upstream | aman |
 | opengl port + egl/opengl-registry | system lib / Apache-2.0 | aman (pengecualian system library) |
@@ -439,3 +440,10 @@ CPU-SIFT 3/3 foto lolos (exit 0). Pengecualian tercatat (tanpa alternatif
 realistis): Eigen MPL-2.0 header-only tak-dimodifikasi (karya besar boleh
 permisif, notice dipertahankan) + toolchain CUDA proprietary (redistributable,
 notice NVIDIA wajib pada distribusi biner).
+
+### Lisensi final (2026-10-12, disetujui pemilik)
+
+Apache-2.0 untuk karya orisinal (`LICENSE`, Copyright 2026 RyanAraaful).
+`THIRD_PARTY_NOTICES.md` ditulis dari sumber primer (teks penuh BSD/MIT
+terverifikasi, pointer MPL-2.0/BSL-2.0/EULA). Koreksi: Ceres = BSD-3
+(file copyright vcpkg), bukan Apache seperti baris audit lama.

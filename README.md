@@ -70,10 +70,10 @@ atomic commits) — full contract in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-- `colmap/` is upstream COLMAP (BSD-style, see its headers) plus the
-  engine modifications in the `kernel ...` commit(s).
-- `scripts/`, `tools/metrics.cpp`, `docs/`, `MODS.md` in this repo are
-  original work for this project.
-- License intent is permissive (anyone may use); final license text is
-  pending audit. No GPL/AGPL code is built or executed here. SiftGPU is
-  never executed; the pipeline runs CPU SIFT.
+- Original MMSP work is under the Apache License 2.0 — see `LICENSE`.
+  Third-party attributions live in `THIRD_PARTY_NOTICES.md` (ship both
+  files with any distribution).
+- `colmap/` is upstream COLMAP (BSD-3-Clause) plus the engine
+  modifications in the `kernel ...` commit(s).
+- No GPL/AGPL code is built or executed here. SiftGPU is removed from
+  the tree (never present in binaries); the pipeline runs CPU SIFT.
