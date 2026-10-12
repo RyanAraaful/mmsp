@@ -344,7 +344,9 @@ menggabung track) dengan kualitas datar (Primary out 9,21% C2C 4,27cm;
 Secondary out 7,31% C2C 4,26cm). DITOLAK umum.
 Juara bertahan: Primary `fused_d2.ply` 3.563.973 (1,476J/mnt = 0,95x),
 Secondary `fused_secondary_r3.ply` 1.721.491 (1,713J/mnt = 0,68x). Lubang
-terpenuhi (onlyB ≤1) di kedua site.
+terpenuhi (onlyB ≤1) di kedua site. kernel-t3 DITUTUP di angka ini
+(re-verifikasi segar 2026-10-12 identik ledger); sisa gap = riset
+algoritmik berikutnya (red-black/densifikasi, butuh gate baru).
 
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
 
