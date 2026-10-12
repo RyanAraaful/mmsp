@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Continue'
-$dir = 'E:\CloudCompare_v2.13.2_bin_x64\CloudCompare_v2.13.2.preview_bin_x64'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$dir = "$CloudCompareDir"
 foreach ($dll in @('CCAppCommon.dll', 'QCC_DB_LIB.dll')) {
   $bytes = [System.IO.File]::ReadAllBytes("$dir\$dll")
   $uni = [System.Text.Encoding]::Unicode.GetString($bytes)

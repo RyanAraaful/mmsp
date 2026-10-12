@@ -1,11 +1,8 @@
 $ErrorActionPreference = 'Continue'
-$env:CUDA_PATH = 'E:\dev\tools\cuda-env'
-$env:CUDA_HOME = 'E:\dev\tools\cuda-env'
-$env:CUDAToolkit_ROOT = 'E:\dev\tools\cuda-env'
-$env:PATH = 'E:\dev\tools\cuda-env\bin;' + $env:PATH
-$colmap = 'E:\dev\Colmap-Kernel\colmap\build-mx150\src\colmap\exe\colmap.exe'
-$proj = 'E:\dev\Midai-14agustus'
-$src = 'E:\Foto Udara\Midai\Photo Capture\14 Agustus 2025'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$colmap = "$ColmapExe"
+$proj = $MidaiRoot
+$src = $MidaiPhotos
 mkdir "$proj\images" -Force | Out-Null
 Copy-Item "$src\*.jpg" "$proj\images\" -Force # top level saja; subdir Duplikat\ dikecualikan
 Write-Host ("images=" + @(Get-ChildItem "$proj\images\*.jpg").Count)

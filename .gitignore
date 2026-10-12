@@ -41,3 +41,7 @@ metrics_*.txt
 # CMake-generated version stamp (build artifact inside source tree)
 colmap/src/colmap/util/version.cc
 
+
+# Machine-specific script config (see env.local.example.ps1)
+env.local.ps1
+

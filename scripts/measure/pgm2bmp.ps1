@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../env.ps1')
 $in = $args[0]; $out = $args[1]
 $fs = [System.IO.File]::OpenRead($in)
 $br = New-Object System.IO.BinaryReader($fs)

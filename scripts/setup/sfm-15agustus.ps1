@@ -1,10 +1,7 @@
 $ErrorActionPreference = 'Continue'
-$env:CUDA_PATH = 'E:\dev\tools\cuda-env'
-$env:CUDA_HOME = 'E:\dev\tools\cuda-env'
-$env:CUDAToolkit_ROOT = 'E:\dev\tools\cuda-env'
-$env:PATH = 'E:\dev\tools\cuda-env\bin;' + $env:PATH
-$colmap = 'E:\dev\Colmap-Kernel\colmap\build-mx150\src\colmap\exe\colmap.exe'
-$proj = 'E:\dev\Lewoleba-15agustus'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$colmap = "$ColmapExe"
+$proj = "$LewolebaRoot"
 & $colmap feature_extractor --database_path "$proj\database.db" --image_path "$proj\images" --ImageReader.single_camera 1 --FeatureExtraction.use_gpu 0 --FeatureExtraction.num_threads -1 2>&1 | Tee-Object "$proj\log_extract.txt"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $colmap sequential_matcher --database_path "$proj\database.db" --SequentialMatching.overlap 10 --FeatureMatching.use_gpu 0 --FeatureMatching.num_threads -1 2>&1 | Tee-Object "$proj\log_match.txt"

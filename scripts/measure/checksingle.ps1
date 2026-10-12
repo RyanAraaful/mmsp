@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Continue'
-$outdir = 'E:/dev/Lewoleba-15agustus'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$outdir = "$LewolebaRoot"
 Write-Host '--- log_patch_singlepass tail ---'
 if (Test-Path "$outdir/log_patch_singlepass.txt") { Get-Content "$outdir/log_patch_singlepass.txt" -Tail 6 } else { Write-Host 'MISSING log_patch_singlepass.txt' }
 Write-Host '--- log_fusion_singlepass tail ---'

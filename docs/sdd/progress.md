@@ -82,6 +82,7 @@
 - ncc10 (filter_min_ncc 0,15→0,10): depth 1,992 (+4,7%, sedikit lebih lambat) / 3.564.178 pts (+0,006% — DATAR). VONIS: GAGAL. Ronde parametrik DINYATAKAN HABIS (kecuali D2 + Midai-r3).
 - Repo GitHub RyanAraaful/mmsp: .gitignore (build 6,4GB + biner + log + secrets; audit bersih), hapus colmap/.git bersarang, struktur scripts/run-measure-setup + tools, 4 commit atomik (pristine bd1fcf6 → 19 file mod kernel → scripts → docs/tools), force-push OK.
 - Audit lisensi-2: SiftGPU TERBUKTI ter-link (UNC non-permisif) → HAPUS dir + SIFTGPU_ENABLED OFF + guard sift.cc; LSD (AGPL) dir DIHAPUS (OFF dari awal); export/link yatim diperbaiki; rebuild OK; strings SiftGPU=1 (teks), LSD nol; smoke CPU 3/3 lolos. Pengecualian: Eigen MPL + toolchain CUDA.
+- Skrip tanpa hardpath: scripts/env.ps1 + env.local.ps1 (gitignored) + template; 64 file via transformer + 9 manual; nol sisa path, parsecheck 0, vcvars-order bug ketemu+betulkan, bukti hidup metrics-midai jalan.
 - Lisensi final Apache-2.0 (LICENSE kanonis + Copyright 2026 RyanAraaful) + THIRD_PARTY_NOTICES.md dari sumber primer (BSD/MIT verbatim, pointer MPL/BSL/EULA); koreksi Ceres=BSD-3. Push OK.
 - Tutup lisensi: header Apache di tools/metrics.cpp + rebuild exe terverifikasi jalan. Status akhir: tree permisif-murni (Eigen MPL + toolchain CUDA sebagai pengecualian tercatat).
 - Metrik pemenang: Lewoleba reuse2 cov 0,997 (onlyB=1), C2C 4,1cm, out 7,4%/3,2%. Midai b64 cov 0,998 (onlyB=1), C2C 4,3cm, out 5,4%/4,8%. Throughput: 0,88x / 0,44x vs OpenMVS. Micro-CUDA HABIS; MODS milestone Ronde-3 ditulis.

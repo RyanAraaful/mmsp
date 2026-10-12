@@ -1,9 +1,10 @@
 $ErrorActionPreference = 'Continue'
-$omvsBin = 'E:/dev/openMVS/build-mx150/bin/vc17/x64'
-$proj = 'E:/dev/Midai-14agustus'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$omvsBin = "$OpenMVSRoot/build-mx150/bin/vc17/x64"
+$proj = "$MidaiRoot"
 $work = "$proj/openmvs"
 mkdir $work -Force | Out-Null
-Copy-Item 'E:/dev/tools/cuda-env/bin/cudart64_12.dll', 'E:/dev/tools/cuda-env/bin/curand64_10.dll' "$omvsBin/" -Force
+Copy-Item "$CudaEnv/bin/cudart64_12.dll", "$CudaEnv/bin/curand64_10.dll" "$omvsBin/" -Force
 Set-Location $omvsBin
 & './InterfaceCOLMAP.exe' -i "$proj/dense" -o "$work/scene.mvs" 2>&1 | Select-Object -Last 4
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

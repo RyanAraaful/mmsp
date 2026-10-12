@@ -1,12 +1,9 @@
 $ErrorActionPreference = 'Continue'
-$env:CUDA_PATH = 'E:\dev\tools\cuda-env'
-$env:CUDA_HOME = 'E:\dev\tools\cuda-env'
-$env:CUDAToolkit_ROOT = 'E:\dev\tools\cuda-env'
-$env:PATH = 'E:\dev\tools\cuda-env\bin;' + $env:PATH
-$nsys = 'C:\Program Files\NVIDIA Corporation\Nsight Systems 2024.7.1\target-windows-x64\nsys.exe'
-$colmap = 'E:\dev\Colmap-Kernel\colmap\build-mx150\src\colmap\exe\colmap.exe'
-$dense = 'E:\dev\Lewoleba-15agustus\dense700'
-$outdir = 'E:\dev\Lewoleba-15agustus'
+. (Join-Path $PSScriptRoot '../env.ps1')
+$nsys = "$NsysExe"
+$colmap = "$ColmapExe"
+$dense = "$LewolebaRoot\dense700"
+$outdir = "$LewolebaRoot"
 $stereo = "$dense\stereo"
 $backup = "$stereo\backup_pre_nsys"
 New-Item -ItemType Directory -Force "$backup\depth_maps" | Out-Null

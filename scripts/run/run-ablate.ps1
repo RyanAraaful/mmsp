@@ -1,6 +1,6 @@
 # run-ablate.ps1 — frozen ablation harness for MVS speed+density plan (Task 0).
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File run-ablate.ps1 -Label <nama> [-ExtraArgs '<flags tambahan>']
-# Produces (in E:\dev\Lewoleba-15agustus\): log_patch_<label>.txt, log_fusion_<label>.txt,
+# Produces (in the workspace parent): log_patch_<label>.txt, log_fusion_<label>.txt,
 # vram_<label>.csv, fused_<label>.ply (+ fused.ply baseline-compatible); prints points/time/hash.
 # Mirrors g3-patch700.ps1 baseline flags @700px; undistort is NOT rerun (dense700/ reused).
 param(
@@ -8,14 +8,12 @@ param(
   [string]$ExtraArgs = '',
   [string]$FusionInputType = 'geometric',
   [string]$FusionExtraArgs = '',
-  [string]$Workspace = 'E:\dev\Lewoleba-15agustus\dense700'
+  [string]$Workspace = ''
 )
 $ErrorActionPreference = 'Continue'
-$env:CUDA_PATH = 'E:\dev\tools\cuda-env'
-$env:CUDA_HOME = 'E:\dev\tools\cuda-env'
-$env:CUDAToolkit_ROOT = 'E:\dev\tools\cuda-env'
-$env:PATH = 'E:\dev\tools\cuda-env\bin;' + $env:PATH
-$colmap = 'E:\dev\Colmap-Kernel\colmap\build-mx150\src\colmap\exe\colmap.exe'
+. (Join-Path $PSScriptRoot '../env.ps1')
+if ([string]::IsNullOrEmpty($Workspace)) { $Workspace = "$LewolebaRoot/dense700" }
+$colmap = $ColmapExe
 $dense = $Workspace
 $outdir = Split-Path $dense -Parent
 if (!(Test-Path "$dense\stereo\patch-match.cfg.full")) { Copy-Item "$dense\stereo\patch-match.cfg" "$dense\stereo\patch-match.cfg.full" -Force } # guard: keep first backup, g3 overwrote it each run
@@ -71,6 +69,6 @@ Get-FileHash "$dense\fused_$Label.ply"
 # cameras -> view-nadir-base.png / view-oblik-base.png. No headless renderer on this box
 # (no model_viewer GUI build, no CloudCompare/Meshlab CLI found), so the exact render is
 # deferred to the dry-run step on a machine with a viewer; candidate commands:
-#   CloudCompare -SILENT -O E:/dev/Lewoleba-15agustus/dense700/fused.ply -O E:/dev/Lewoleba-15agustus/openmvs/scene_dense.ply -VIEW TOP -SAVE_IMAGE view-nadir-base.png
+#   CloudCompare -SILENT -O <dense>/fused.ply -O <dense>/../openmvs/scene_dense.ply -VIEW TOP -SAVE_IMAGE view-nadir-base.png
 #   (then -VIEW ISO / custom azimuth for oblik -> view-oblik-base.png)
 exit 0
