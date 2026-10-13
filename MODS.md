@@ -350,19 +350,43 @@ algoritmik berikutnya (red-black/densifikasi, butuh gate baru).
 
 ### Milestone 2026-10-14 duel OpenSfM (pembanding eksternal, pin `c1fcfcec` 2026-10-08, BSD-2-Clause; tak masuk tree/notices)
 
-Secondary 51 foto, default kedua sisi:
+Duel tercatat Secondary 51 foto (file 4000x3000 sama, `single_camera`, 51/51 teregistrasi kedua sisi):
 
-| metrik | hibrida kita | OpenSfM |
-|---|---|---|
-| extract | 275 dtk (GPU) | 101,8 dtk |
-| match | 187 dtk (CPU) | 49,2 dtk |
-| total SfM | 503 dtk | 203,4 dtk |
-| reg | 51/51 | 51/51 |
-| points | 19.833 | 19.962 |
-| track | 5,008 | 5,331 (over-two; definisi beda) |
-| reproj | 0,912px | 0,765px |
+| metrik | hibrida kita (COLMAP SIFT) | OpenSfM (HAHOG default) | sumber |
+|---|---|---|---|
+| resolusi proses | 3200 (default SIFT) | 2048 (`feature_process_size`) | `extractor.cc:138`, `config.py:41` |
+| fitur/foto aktual | mean 12.665 (9.637–16.008) | mean 4.973 (4.706–5.384) | `database.db`, `stats.json` |
+| pasangan match | 243 (sequential overlap 10) | 862 (GPS distance 150) | `database.db`, `log_match_features.txt` |
+| extract | 275 dtk (GPU) | 101,8 dtk | log duel |
+| match | 187 dtk (CPU) | 49,2 dtk | log duel |
+| total SfM | 503 dtk | 203,4 dtk | log + `profile.log` |
+| points | 19.833 | 19.962 | mapper / `stats.json` |
+| track | 5,008 | 3,858 (5,331 over-two; definisi beda) | model_analyzer / `stats.json` |
+| reproj | 0,912px | 0,765px | model_analyzer / `stats.json` |
 
-VONIS: OpenSfM MENANG (2,5x wall, kualitas ≥ di semua metrik sebanding). Catatan jujur: operating point beda (~5rb vs ~12,7rb fitur/foto) — duel sistem-vs-sistem di foto sama, bukan fitur-sama. Sisa popsift-t1 SELESAI; duel ini menutup kebutuhan pembanding SfM.
+VONIS: OpenSfM MENANG wall (2,5x) di duel tercatat; kualitas campur (points ±0,6% sama, reproj mereka lebih baik, track kita lebih panjang).
+
+**Duel ulang FAIR (2026-10-14, project `Midai-14agustus-fair`, hasil lama tak ditimpa):**
+COLMAP `--FeatureExtraction.max_image_size 2048 --SiftExtraction.max_num_features 5000`;
+OpenSfM `config.yaml` HAHOG/2048/4000 (= default, perilaku tak berubah).
+
+| metrik | COLMAP fair | OpenSfM fair | sumber |
+|---|---|---|---|
+| fitur/foto aktual | mean 7.192 (5.920–9.280; flag 5000 = soft target, tak hard-cap) | mean 4.973 (4.706–5.384) | `database.db`, `stats.json` |
+| pasangan match | 243 (sequential overlap 10) | 862 (GPS distance 150) | `database.db`, `log_match_features.txt` |
+| extract | 121,7 dtk (CPU) | 95,4 dtk | `log_extract.txt` / `profile.log` |
+| match | 84,3 dtk (CPU) | 48,5 dtk | `log_match.txt` / `profile.log` |
+| mapper/reconstruct | 27,1 dtk | 43,7 dtk | `log_mapper.txt` / `profile.log` |
+| total SfM | ~233 dtk | ~209 dtk | jumlah stage |
+| reg | 51/51 | 51/51 | model_analyzer / `stats.json` |
+| points | 12.686 | 19.992 | model_analyzer / `stats.json` |
+| track | 4,966 | 3,860 | model_analyzer / `stats.json` |
+| reproj | 1,015px | 0,767px | model_analyzer / `stats.json` |
+
+VONIS FAIR: wall hampir setara (OpenSfM 1,1x — gap 2,5x tertutup setelah resolusi disamakan);
+kualitas OpenSfM menang (points +58%, reproj lebih baik; track kita lebih panjang).
+Sisa beda jujur: budget fitur 1,4x (7,2rb vs 5rb — flag COLMAP soft) + pasangan 243 vs 862
++ SIFT vs HAHOG (itu yang diadu).
 
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
 

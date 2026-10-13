@@ -36,7 +36,20 @@ print("shots=%d points=%d" % (len(shots), len(pts)))
 
 function Invoke-DuelSet($name, $srcImages, $proj) {
   New-Item -ItemType Directory -Force (Join-Path $proj 'images') | Out-Null
-  Copy-Item (Join-Path $srcImages '*.jpg') (Join-Path $proj 'images/') -Force
+  # Smoke memanggil dengan src == dest (3 foto sudah disalin di atas) — lewati
+  # copy agar tidak error "cannot overwrite with itself".
+  if ((Join-Path $srcImages '') -ne (Join-Path $proj 'images/')) {
+    Copy-Item (Join-Path $srcImages '*.jpg') (Join-Path $proj 'images/') -Force
+  }
+  # Fairness: kunci operating point OpenSfM secara eksplisit (nilai = default
+  # upstream, jadi perilaku tidak berubah; hanya tercatat di config.yaml).
+  # Pasangan: feature_process_size 2048 vs COLMAP SiftExtraction.max_image_size
+  # 2048 di sfm-secondary.ps1.
+  @'
+feature_type: HAHOG
+feature_process_size: 2048
+feature_min_frames: 4000
+'@ | Set-Content (Join-Path $proj 'config.yaml') -Encoding Ascii
   $walls = @{}
   foreach ($stage in @('extract_metadata', 'detect_features', 'match_features', 'create_tracks', 'reconstruct', 'compute_statistics')) {
     $r = Invoke-Stage $stage $proj (Join-Path $proj "log_$stage.txt")
