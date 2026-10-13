@@ -383,10 +383,19 @@ OpenSfM `config.yaml` HAHOG/2048/4000 (= default, perilaku tak berubah).
 | track | 4,966 | 3,860 | model_analyzer / `stats.json` |
 | reproj | 1,015px | 0,767px | model_analyzer / `stats.json` |
 
-VONIS FAIR: wall hampir setara (OpenSfM 1,1x — gap 2,5x tertutup setelah resolusi disamakan);
+VONIS FAIR: wall hampir setera (OpenSfM 1,1x — gap 2,5x tertutup setelah resolusi disamakan);
 kualitas OpenSfM menang (points +58%, reproj lebih baik; track kita lebih panjang).
 Sisa beda jujur: budget fitur 1,4x (7,2rb vs 5rb — flag COLMAP soft) + pasangan 243 vs 862
 + SIFT vs HAHOG (itu yang diadu).
+
+**Optimasi 1 SELESAI (2026-10-14, project `Midai-14agustus-fairgpu`):**
+extract pakai SIFT-GPU native (`--SiftExtraction.use_gpu_native 1`, match tetap CPU).
+Verifikasi jalur: log TAK ada baris `sift.cc:779` CPU (kode native memang tanpa LOG) +
+fitur mean 7.194 vs 7.192 CPU (paritas bit, sesuai desain).
+Hasil: extract 113,3 (vs 121,7 CPU, −7%) + match 82,9 + mapper 27,4 = ~224 dtk
+(vs 233 CPU, −4%); 51/51, 12.737 pts, track 4,957, reproj 1,016px.
+VONIS: valid tapi kecil — OpenSfM tetap 1,07x + kualitas menang. Gain GPU menyusut
+di 2048px (dulu −26% di 3200px); overhead alokasi-per-Extract mendominasi di MX150.
 
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
 
