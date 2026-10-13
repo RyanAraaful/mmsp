@@ -7,6 +7,12 @@
 // orientations/descriptor; L1_ROOT + uint8 quantization reuse utils.h so the
 // output format matches the CPU path byte for byte.
 //
+// Not derived from the SiftGPU project (Changchang Wu); native code that
+// ports the VLFeat (BSD, thirdparty/VLFeat) SIFT algorithm to CUDA.
+// Portions derived from VLFeat: copyright (C) 2007-11, Andrea Vedaldi and
+// Brian Fulkerson; copyright (C) 2012-13, The VLFeat Team
+// (see THIRD_PARTY_NOTICES.md).
+//
 // Copyright 2026 RyanAraaful
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
