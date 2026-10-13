@@ -397,6 +397,27 @@ Hasil: extract 113,3 (vs 121,7 CPU, −7%) + match 82,9 + mapper 27,4 = ~224 dtk
 VONIS: valid tapi kecil — OpenSfM tetap 1,07x + kualitas menang. Gain GPU menyusut
 di 2048px (dulu −26% di 3200px); overhead alokasi-per-Extract mendominasi di MX150.
 
+**Optimasi 2 NO-OP karena desain salah (2026-10-14, project `Midai-14agustus-fairo7`):**
+overlap 10→7 hasilkan pasangan IDENTIK (243 = 243) karena `quadratic_overlap=true`
+(default, `pairing.h:92`): spacing eksponensial 1,2,4,8,16,32 — untuk 51 foto,
+overlap 7 dan 10 valid di spacing yang sama. Hasil: 51/51, 12.678 pts
+(vs 12.686 = noise), match 83,5 vs 84,3 dtk. Bukan gagal eksekusi (semua exit 0),
+tapi knob tak berfungsi di rentang ini. Syaratretry: overlap ≤5 atau
+`--SequentialMatching.quadratic_overlap 0`.
+
+**Optimasi 3 SELESAI (2026-10-14, project `Midai-14agustus-fair8000`):**
+`max_num_features` 5000→8000 + extract GPU-native, match CPU, overlap 10.
+Aktual fitur mean 11.875 (flag soft lagi); extract 110,2 + match 177,8 +
+mapper 42,2 = ~330 dtk; 51/51, 19.532 pts, track 4,977, reproj 0,927px.
+Tukaran: +6.800 pts (+54%) untuk +106 dtk (+47%) vs fair-GPU.
+VONIS: paritas points hampir tertutup (19.532 vs 19.992 = 97,7%) tapi wall
+1,58x OpenSfM (330 vs 209); reproj tetap kalah (0,927 vs 0,767px).
+Pelajaran: OpenSfM capai 20rb points dari 5rb fitur + 862 pasangan, kita butuh
+11,9rb fitur + 243 pasangan — strategi pilih pasangan lebih menentukan
+daripada budget fitur mentah. Match CPU skala ~kuadratik (84→178 dtk),
+jadi jalan keluar wall = matcher lebih cepat atau pasangan lebih pintar,
+bukan fitur lebih banyak.
+
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
 
 Tersangka terkonfirmasi: `SPARSE_SCHUR+EIGEN_SPARSE` (kombinasi baru:
