@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** OpenSfM (BSD-3.0) terinstall dan jalan di mesin ini sebagai pembanding SfM, duel adil Secondary 51 foto vs pipeline kita (CPU dulu, native-GPU menyusul).
+**Goal:** OpenSfM (BSD-2-Clause, fork hidup OpenSfM/OpenSfM) terinstall dan jalan di mesin ini sebagai pembanding SfM, duel adil Secondary 51 foto vs pipeline kita (CPU dulu, native-GPU menyusul).
 
 **Architecture:** Python 3.11 via micromamba (`tools/micromamba.exe`, pola `cuda-env`), `pip install opensfm`, smoke 3 foto, duel Secondary 51. OpenSfM = proses-terpisah seperti OpenMVS (AGPL): tidak ada salin kode, hanya angka pembanding. Tanpa Python di PATH hari ini — env Python adalah prasyarat Task 1.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- OpenSfM hanya pembanding proses-terpisah; lisensi BSD-3.0 dicatat di `THIRD_PARTY_NOTICES.md` saat install lolos.
+- OpenSfM hanya pembanding proses-terpisah; lisensi BSD-2-Clause dicatat di `THIRD_PARTY_NOTICES.md` saat install lolos.
 - Dataset Secondary 51 foto yang sama; metrik SfM numerik saja: wall extract, wall match, reg rate, mean track length, mean reproj error (px), #3D points.
 - Klaim hanya dari angka; tiap task berhenti bila prasyarat gagal (catat blocker, bukan failure plan).
 
@@ -44,7 +44,7 @@ Expected: `$PyEnv/python.exe --version` → 3.11.x. Gagal unduh = transien, retr
 ### Task 2: Install OpenSfM dari source + catat lisensi (amendemen: PyPI tak menerbitkan `opensfm`, putusan pemilik = source install)
 
 **Files:**
-- Modify: `THIRD_PARTY_NOTICES.md` (+entri OpenSfM BSD-3.0 + commit pin), `scripts/setup/install-opensfm.ps1` (git clone Mapillary/OpenSfM ke `$OpenSfMRoot` + install dari source ke `$PyEnv` + `import opensfm` probe).
+- Modify: `THIRD_PARTY_NOTICES.md` (+entri OpenSfM BSD-2-Clause + commit pin), `scripts/setup/install-opensfm.ps1` (git clone OpenSfM/OpenSfM branch master ke `$OpenSfMRoot` + install dari source ke `$PyEnv` + `import opensfm` probe). Catatan: repo mapillary mati upstream (README-nya menunjuk ke fork hidup ini) — JANGAN pakai URL mapillary.
 - Test: probe import exit 0 + `opensfm --help` mencetak usage.
 
 - [ ] **Step 1 (RED): probe gagal sebelum install.** Expected: import error tercatat.
