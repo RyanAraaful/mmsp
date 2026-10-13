@@ -82,6 +82,9 @@ if(CUDA_ENABLED)
     # Native CUDA SIFT extractor (default-off stub in Task 1): the .cu joins
     # colmap_feature directly, so no new exported target is needed.
     target_sources(colmap_feature PRIVATE sift_gpu_native.cu)
+    # The .cu calls the CUDA runtime; link shared cudart on the owning target
+    # (mvs/CMakeLists.txt precedent) so its refs resolve like the other libs.
+    target_link_libraries(colmap_feature PRIVATE CUDA::cudart)
 endif()
 
 if(OPENMP_FOUND)

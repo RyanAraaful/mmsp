@@ -1,4 +1,4 @@
-// sift_gpu_native.h — native CUDA SIFT extractor stub (Task 1).
+// sift_gpu_native.h — native CUDA SIFT extractor (Task 2: detection).
 //
 // Copyright 2026 RyanAraaful
 //
@@ -17,19 +17,22 @@
 #pragma once
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/sift.h"
 
 namespace colmap {
 
-struct SiftExtractionOptions;
-
 // Native CUDA SIFT feature extractor (Apache-2.0, zero new dependencies).
-// Task 1: stub that fails cleanly; real kernels land in Task 2/3.
+// Task 2: GPU octave pyramid + DoG, host-side extrema ported from VLFeat;
+// detection-only mode is env-gated, full extraction still FATALs (Task 3).
 class NativeGpuSiftExtractor : public FeatureExtractor {
  public:
   explicit NativeGpuSiftExtractor(const SiftExtractionOptions& options);
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override;
+
+ private:
+  SiftExtractionOptions options_;
 };
 
 }  // namespace colmap
