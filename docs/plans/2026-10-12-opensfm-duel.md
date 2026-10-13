@@ -41,15 +41,15 @@ Expected: `$PyEnv/python.exe --version` → 3.11.x. Gagal unduh = transien, retr
 
 - [ ] **Step 2: parsecheck + commit.** Pesan `setup: python 3.11 env for opensfm duel`.
 
-### Task 2: Install OpenSfM + catat lisensi
+### Task 2: Install OpenSfM dari source + catat lisensi (amendemen: PyPI tak menerbitkan `opensfm`, putusan pemilik = source install)
 
 **Files:**
-- Modify: `THIRD_PARTY_NOTICES.md` (+entri OpenSfM BSD-3.0 + versi pin), `scripts/setup/install-opensfm.ps1` (pip install opensfm + `import opensfm` probe).
+- Modify: `THIRD_PARTY_NOTICES.md` (+entri OpenSfM BSD-3.0 + commit pin), `scripts/setup/install-opensfm.ps1` (git clone Mapillary/OpenSfM ke `$OpenSfMRoot` + install dari source ke `$PyEnv` + `import opensfm` probe).
 - Test: probe import exit 0 + `opensfm --help` mencetak usage.
 
 - [ ] **Step 1 (RED): probe gagal sebelum install.** Expected: import error tercatat.
-- [ ] **Step 2: install.** Run skrip. Expected: probe lolos. Build C-extension gagal di Windows → STOP + catat blocker (fallback: duel vs baseline internal, putusan pemilik).
-- [ ] **Step 3: commit.** Pesan `setup: opensfm <versi> + license notice`.
+- [ ] **Step 2: install dari source.** Run skrip. Expected: probe lolos. Build C-extension gagal di Windows → STOP + catat blocker (fallback: duel vs baseline internal, putusan pemilik).
+- [ ] **Step 3: commit.** Pesan `setup: opensfm <commit-pin> + license notice`.
 
 ### Task 3: Smoke 3 foto + duel Secondary 51
 
