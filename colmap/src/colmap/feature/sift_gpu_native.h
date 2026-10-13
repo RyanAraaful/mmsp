@@ -22,8 +22,9 @@
 namespace colmap {
 
 // Native CUDA SIFT feature extractor (Apache-2.0, zero new dependencies).
-// Task 2: GPU octave pyramid + DoG, host-side extrema ported from VLFeat;
-// detection-only mode is env-gated, full extraction still FATALs (Task 3).
+// Task 3: GPU octave pyramid + DoG + gradients, host extrema ported from
+// VLFeat, GPU 36-bin orientation + 4x4x8 descriptors with L1_ROOT uint8
+// output matching the CPU path format.
 class NativeGpuSiftExtractor : public FeatureExtractor {
  public:
   explicit NativeGpuSiftExtractor(const SiftExtractionOptions& options);

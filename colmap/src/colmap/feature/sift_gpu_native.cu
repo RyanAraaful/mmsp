@@ -1,9 +1,11 @@
-// sift_gpu_native.cu — native CUDA SIFT detection (Task 2).
+// sift_gpu_native.cu — native CUDA SIFT detection + orientation + descriptors.
 //
-// Octave pyramid + DoG run on the GPU (one stream, one device allocation per
-// Extract); extrema search + subpixel refinement run on the host as an exact
-// port of thirdparty/VLFeat/sift.c vl_sift_detect, so keypoint counts track
-// the VLFeat CPU path. Orientation/descriptors arrive in Task 3.
+// Octave pyramid + DoG + gradients run on the GPU (one stream, one device
+// allocation per Extract); extrema search runs on the host as an exact port
+// of thirdparty/VLFeat/sift.c vl_sift_detect. Orientation (36-bin) and 4x4x8
+// descriptors run in GPU kernels mirroring vl_sift_calc_keypoint_
+// orientations/descriptor; L1_ROOT + uint8 quantization reuse utils.h so the
+// output format matches the CPU path byte for byte.
 //
 // Copyright 2026 RyanAraaful
 //
@@ -22,6 +24,7 @@
 #include "colmap/feature/sift_gpu_native.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/util/logging.h"
 
 #include <cuda_runtime.h>
@@ -138,6 +141,188 @@ __global__ void DogKernel(const float* hi, const float* lo, float* dog, int n) {
   dog[i] = hi[i] - lo[i];
 }
 
+__device__ float Mod2Pi(float x) {
+  const float t = 6.283185307179586f;  // 2 * VL_PI, float (VLFeat float cast)
+  while (x > t) x -= t;
+  while (x < 0) x += t;
+  return x;
+}
+
+// Gradient magnitude + angle, exact port of VLFeat update_gradient
+// (one-sided borders, central interior, angle = mod2pi(atan2(gy,gx)+2pi)).
+__global__ void GradKernel(const float* src, int w, int h, float* grad) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= w * h) return;
+  const int x = i % w;
+  const int y = i / w;
+  const float c = src[i];
+  const float gx = (x == 0) ? src[i + 1] - c
+                   : (x == w - 1)
+                       ? c - src[i - 1]
+                       : 0.5f * (src[i + 1] - src[i - 1]);
+  const float gy = (y == 0) ? src[i + w] - c
+                   : (y == h - 1)
+                       ? c - src[i - w]
+                       : 0.5f * (src[i + w] - src[i - w]);
+  grad[2 * i] = sqrtf(gx * gx + gy * gy);
+  grad[2 * i + 1] = Mod2Pi(atan2f(gy, gx) + 6.283185307179586f);
+}
+
+struct DetIn {
+  float x, y, sigma;  // octave units
+  int jl;             // gradient level index (si - s_min - 1)
+};
+
+struct AngOut {
+  int n;
+  float a[4];
+};
+
+// 36-bin bilinear orientation histogram, port of
+// vl_sift_calc_keypoint_orientations (VL_SIFT_BILINEAR_ORIENTATIONS branch).
+__global__ void OrientKernel(const float* grad, int w, int h,
+                             const DetIn* dets, int ndet, int s_min, int s_max,
+                             AngOut* out) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= ndet) return;
+  const float x = dets[i].x;
+  const float y = dets[i].y;
+  const float sigma = dets[i].sigma;
+  const int xi = static_cast<int>(x + 0.5f);
+  const int yi = static_cast<int>(y + 0.5f);
+  const int si = dets[i].jl + s_min + 1;
+  if (xi < 0 || xi > w - 1 || yi < 0 || yi > h - 1 || si < s_min + 1 ||
+      si > s_max - 2) {
+    out[i].n = 0;
+    return;
+  }
+  const float sigmaw = 1.5f * sigma;
+  const int W = (static_cast<int>(floorf(3.0f * sigmaw)) > 1)
+                    ? static_cast<int>(floorf(3.0f * sigmaw))
+                    : 1;
+  double hist[36];
+  for (int k = 0; k < 36; ++k) hist[k] = 0;
+  // grad already points at this detection level's base (jl used for si only).
+  const float* g = grad;
+  const int xs0 = (-W > -xi) ? -W : -xi;
+  const int xs1 = (W < w - 1 - xi) ? W : w - 1 - xi;
+  const int ys0 = (-W > -yi) ? -W : -yi;
+  const int ys1 = (W < h - 1 - yi) ? W : h - 1 - yi;
+  for (int ys = ys0; ys <= ys1; ++ys) {
+    for (int xs = xs0; xs <= xs1; ++xs) {
+      const double dx = static_cast<double>(xi + xs) - x;
+      const double dy = static_cast<double>(yi + ys) - y;
+      const double r2 = dx * dx + dy * dy;
+      if (r2 >= W * W + 0.6) continue;
+      const double wgt = exp(-r2 / (2.0 * sigmaw * sigmaw));
+      const double mod = g[(yi + ys) * w * 2 + (xi + xs) * 2];
+      const double ang = g[(yi + ys) * w * 2 + (xi + xs) * 2 + 1];
+      const double fbin = 36.0 * ang / 6.283185307179586;
+      const int bin = static_cast<int>(floor(fbin - 0.5));
+      const double rbin = fbin - bin - 0.5;
+      hist[(bin + 36) % 36] += (1 - rbin) * mod * wgt;
+      hist[(bin + 1) % 36] += rbin * mod * wgt;
+    }
+  }
+  for (int iter = 0; iter < 6; ++iter) {
+    double prev = hist[35];
+    const double first = hist[0];
+    for (int k = 0; k < 35; ++k) {
+      const double nh = (prev + hist[k] + hist[k + 1]) / 3.0;
+      prev = hist[k];
+      hist[k] = nh;
+    }
+    hist[35] = (prev + hist[35] + first) / 3.0;
+  }
+  double maxh = 0;
+  for (int k = 0; k < 36; ++k) maxh = (maxh > hist[k]) ? maxh : hist[k];
+  int n = 0;
+  for (int k = 0; k < 36 && n < 4; ++k) {
+    const double h0 = hist[k];
+    const double hm = hist[(k + 35) % 36];
+    const double hp = hist[(k + 1) % 36];
+    if (h0 > 0.8 * maxh && h0 > hm && h0 > hp) {
+      const double di = -0.5 * (hp - hm) / (hp + hm - 2 * h0);
+      out[i].a[n++] =
+          static_cast<float>(6.283185307179586 * (k + di + 0.5) / 36.0);
+    }
+  }
+  out[i].n = n;
+}
+
+struct OrnIn {
+  float x, y, sigma, angle;  // octave units, angle in radians
+};
+
+// 4x4x8 descriptor, port of vl_sift_calc_keypoint_descriptor raw loop +
+// L2-normalize, truncate at 0.2, normalize again (COLMAP applies L1_ROOT
+// afterwards on the host via utils.h, exactly like the CPU path).
+__global__ void DescKernel(const float* grad, int w, int h, const OrnIn* keys,
+                           int nkeys, float* desc) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= nkeys) return;
+  const float x = keys[i].x;
+  const float y = keys[i].y;
+  const float sigma = keys[i].sigma;
+  const float angle0 = keys[i].angle;
+  const int xi = static_cast<int>(x + 0.5f);
+  const int yi = static_cast<int>(y + 0.5f);
+  float* d = desc + static_cast<size_t>(i) * 128;
+  if (xi < 0 || xi >= w || yi < 0 || yi >= h - 1) return;  // d stays zeroed
+  const double st0 = sin(static_cast<double>(angle0));
+  const double ct0 = cos(static_cast<double>(angle0));
+  const double sbp = 3.0 * sigma + 2.220446049250313e-16;
+  const int W =
+      static_cast<int>(floor(1.4142135623730951 * sbp * 5.0 / 2.0 + 0.5));
+  const int dxs0 = (-W > 1 - xi) ? -W : 1 - xi;
+  const int dxs1 = (W < w - xi - 2) ? W : w - xi - 2;
+  const int dys0 = (-W > 1 - yi) ? -W : 1 - yi;
+  const int dys1 = (W < h - yi - 2) ? W : h - yi - 2;
+  for (int dyi = dys0; dyi <= dys1; ++dyi) {
+    for (int dxi = dxs0; dxi <= dxs1; ++dxi) {
+      const float mod = grad[(yi + dyi) * w * 2 + (xi + dxi) * 2];
+      const float angle = grad[(yi + dyi) * w * 2 + (xi + dxi) * 2 + 1];
+      const float theta = Mod2Pi(angle - angle0);
+      const float dx = xi + dxi - x;
+      const float dy = yi + dyi - y;
+      const float nx = static_cast<float>((ct0 * dx + st0 * dy) / sbp);
+      const float ny = static_cast<float>((-st0 * dx + ct0 * dy) / sbp);
+      const float nt =
+          static_cast<float>(8.0 * theta / 6.283185307179586);
+      const float win = expf(-(nx * nx + ny * ny) / 8.0f);
+      const int binx = static_cast<int>(floorf(nx - 0.5f));
+      const int biny = static_cast<int>(floorf(ny - 0.5f));
+      const int bint = static_cast<int>(floorf(nt));
+      const float rbinx = nx - (binx + 0.5f);
+      const float rbiny = ny - (biny + 0.5f);
+      const float rbint = nt - bint;
+      for (int dbinx = 0; dbinx < 2; ++dbinx) {
+        for (int dbiny = 0; dbiny < 2; ++dbiny) {
+          for (int dbint = 0; dbint < 2; ++dbint) {
+            if (binx + dbinx >= -2 && binx + dbinx < 2 &&
+                biny + dbiny >= -2 && biny + dbiny < 2) {
+              const float weight =
+                  win * mod * fabsf(1 - dbinx - rbinx) *
+                  fabsf(1 - dbiny - rbiny) * fabsf(1 - dbint - rbint);
+              d[(bint + dbint) % 8 + (biny + dbiny + 2) * 32 +
+                (binx + dbinx + 2) * 8] += weight;
+            }
+          }
+        }
+      }
+    }
+  }
+  float norm = 1.19209290E-07F;
+  for (int k = 0; k < 128; ++k) norm += d[k] * d[k];
+  norm = sqrtf(norm);
+  for (int k = 0; k < 128; ++k) d[k] /= norm;
+  for (int k = 0; k < 128; ++k) d[k] = (d[k] > 0.2f) ? 0.2f : d[k];
+  norm = 1.19209290E-07F;
+  for (int k = 0; k < 128; ++k) norm += d[k] * d[k];
+  norm = sqrtf(norm);
+  for (int k = 0; k < 128; ++k) d[k] /= norm;
+}
+
 // Gaussian kernel with VLFeat's float rounding (sift.c _vl_sift_smooth).
 void GaussianKernel(double sigma, std::vector<float>* filt, int* fw) {
   *fw = std::max(static_cast<int>(std::ceil(4.0 * sigma)), 1);
@@ -157,7 +342,48 @@ struct RawDetection {
   float sigma;
   int octave;
   int level;  // DoG level s
+  int det_idx;  // octave-local detection index (for descriptor gather)
 };
+
+// Per-octave oriented expansion + raw float descriptors, gathered globally
+// after the tail-scale capping (CPU sift.cc order: cap raw, then orient).
+struct OctaveKeep {
+  std::vector<std::pair<int, int>> ranges;  // per det_idx: (start row, count)
+  std::vector<float> kx, ky, ksig, kang;    // expanded rows, original units
+  std::vector<float> fdesc;                 // expanded rows x 128
+};
+
+// Small auxiliary device buffers; freed on all paths via dtor.
+struct AuxScope {
+  std::vector<void*> ptrs;
+  ~AuxScope() {
+    for (void* p : ptrs) cudaFree(p);
+  }
+  bool Alloc(void** p, size_t bytes, const char* what) {
+    if (cudaMalloc(p, bytes) != cudaSuccess) {
+      LOG(WARNING) << "Native GPU SIFT: " << what << " alloc failed";
+      return false;
+    }
+    ptrs.push_back(*p);
+    return true;
+  }
+};
+
+// Byte order permutation from sift.cc TransformVLFeatToUBCFeatureDescriptors.
+void ToUBCOrder(const FeatureDescriptorsData& src, FeatureDescriptorsData* dst) {
+  static const int q[8] = {0, 7, 6, 5, 4, 3, 2, 1};
+  dst->resize(src.rows(), src.cols());
+  for (Eigen::Index n = 0; n < src.rows(); ++n)
+    for (int i = 0; i < 4; ++i)
+      for (int j = 0; j < 4; ++j)
+        for (int k = 0; k < 8; ++k)
+          (*dst)(n, 8 * (j + 4 * i) + q[k]) = src(n, 8 * (j + 4 * i) + k);
+}
+
+// Bounds (never hit on real photos; graceful empty result past them).
+constexpr size_t kMaxDetPerOctave = 1 << 20;
+constexpr size_t kMaxOrnPerOctave = 1 << 17;
+constexpr size_t kAuxBytes = 110 << 20;
 
 // Extrema search + refinement for one octave, exact port of VLFeat
 // vl_sift_detect (pre-check 0.8*tp, strict 26-neighborhood, <=5 refinement
@@ -311,11 +537,6 @@ void DetectOctave(const std::vector<const float*>& dog, int w,
   }
 }
 
-bool DetectOnlySet() {
-  const char* v = std::getenv("COLMAP_SIFT_GPU_NATIVE_DETECT_ONLY");
-  return v != nullptr && std::string(v) == "1";
-}
-
 // One GPU extraction at a time: the controller spawns an extractor thread per
 // CPU thread, and concurrent full-res pyramids would OOM the 2GB card
 // (same pattern as sift_gpu_mutexes_ in sift.cc).
@@ -333,12 +554,6 @@ NativeGpuSiftExtractor::NativeGpuSiftExtractor(
 bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
                                      FeatureKeypoints* keypoints,
                                      FeatureDescriptors* descriptors) {
-  // Full orientation + descriptor extraction lands in Task 3.
-  if (!DetectOnlySet()) {
-    LOG(FATAL) << "Native GPU SIFT extraction not implemented";
-    return false;
-  }
-
   THROW_CHECK(bitmap.IsGrey());
   THROW_CHECK_NOTNULL(keypoints);
   keypoints->clear();
@@ -391,13 +606,14 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
   }
 
   // One allocation per Extract: input + 5 first-octave-sized slots
-  // (blur ring x2, temp, DoG, s_best carry).
+  // (blur ring x2, temp, DoG, s_best carry) + S gradient levels x2 floats.
   const size_t oct0px = static_cast<size_t>(w0) * static_cast<size_t>(h0);
-  const size_t dev_floats =
-      static_cast<size_t>(W) * static_cast<size_t>(H) + 5 * oct0px;
+  const size_t dev_floats = static_cast<size_t>(W) * static_cast<size_t>(H) +
+                            (5 + 2 * static_cast<size_t>(S)) * oct0px;
   size_t free_bytes = 0, total_bytes = 0;
   if (cudaMemGetInfo(&free_bytes, &total_bytes) == cudaSuccess) {
-    const size_t need = dev_floats * sizeof(float) + kVramHeadroomBytes;
+    const size_t need =
+        dev_floats * sizeof(float) + kAuxBytes + kVramHeadroomBytes;
     if (need >= free_bytes) {
       LOG(WARNING) << "Native GPU SIFT: image " << W << "x" << H
                    << " needs ~" << (need >> 20)
@@ -418,6 +634,7 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
   float* d_tmp = d_b1 + oct0px;
   float* d_dog = d_tmp + oct0px;
   float* d_prev = d_dog + oct0px;
+  float* d_grad = d_prev + oct0px;  // S levels x (mag, angle)
   cudaStream_t st = gpu.stream;
 
   // Grayscale float 0..1, host-side once (CPU sift.cc pattern).
@@ -465,6 +682,28 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
     ~FreeFilt() { cudaFree(p); }
   } free_filt{d_f};
 
+  // Auxiliary per-octave buffers (bounds in the header comment block).
+  AuxScope aux;
+  DetIn* d_det = nullptr;
+  AngOut* d_ang = nullptr;
+  OrnIn* d_orn = nullptr;
+  float* d_desc = nullptr;
+  if (!aux.Alloc(reinterpret_cast<void**>(&d_det),
+                 kMaxDetPerOctave * sizeof(DetIn), "detections") ||
+      !aux.Alloc(reinterpret_cast<void**>(&d_ang),
+                 kMaxDetPerOctave * sizeof(AngOut), "angles") ||
+      !aux.Alloc(reinterpret_cast<void**>(&d_orn),
+                 kMaxOrnPerOctave * sizeof(OrnIn), "oriented") ||
+      !aux.Alloc(reinterpret_cast<void**>(&d_desc),
+                 kMaxOrnPerOctave * kDescDim * sizeof(float),
+                 "descriptors")) {
+    return false;
+  }
+
+  const int max_num_orientations = options_.max_num_orientations;
+  const bool upright = options_.upright;
+  const auto normalization = options_.normalization;
+
   std::vector<float> filt_host;  // reused scratch for Gaussian taps
   auto smooth_in_place = [&](float* img, int w, int h,
                              double sigma) -> bool {
@@ -488,6 +727,7 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
   const int j_best = s_best - s_min;
 
   std::vector<std::vector<RawDetection>> groups;
+  std::vector<OctaveKeep> oct_keeps;
   std::vector<std::vector<float>> host_dogs;
   std::vector<const float*> host_dog_ptrs;
 
@@ -615,19 +855,155 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
                                     cudaMemcpyDeviceToDevice, st),
                     "s_best carry");
       }
+      if (s >= s_min + 1 && s <= s_max - 2) {
+        float* g = d_grad +
+                   static_cast<size_t>(s - s_min - 1) * 2 * oct0px;
+        GradKernel<<<gs, bs, 0, st>>>(b_cur, w, h, g);
+        NGS_CUDA_OK(cudaGetLastError(), "grad launch");
+      }
       float* t = b_prev;
       b_prev = b_cur;
       b_cur = t;
     }
 
     NGS_CUDA_OK(cudaStreamSynchronize(st), "octave sync");
+    OctaveKeep keep;
     if (w >= 3 && h >= 3) {
       host_dog_ptrs.resize(host_dogs.size());
       for (size_t i = 0; i < host_dogs.size(); ++i)
         host_dog_ptrs[i] = host_dogs[i].data();
+      const size_t gprev = groups.size();
       DetectOctave(host_dog_ptrs, w, h, oct, xper, sigma0, S,
                    peak_thresh, edge_thresh, s_min, s_max, &groups);
+      // Octave-local detection order with per-level index lists.
+      std::vector<const RawDetection*> order;
+      for (size_t g = gprev; g < groups.size(); ++g)
+        for (RawDetection& d : groups[g]) {
+          d.det_idx = static_cast<int>(order.size());
+          order.push_back(&d);
+        }
+      const size_t ndet = order.size();
+      if (ndet > kMaxDetPerOctave) {
+        LOG(WARNING) << "Native GPU SIFT: too many detections, skipping image";
+        return false;
+      }
+      std::vector<std::vector<int>> byjl(S);
+      for (size_t p = 0; p < ndet; ++p)
+        byjl[order[p]->level - s_min - 1].push_back(static_cast<int>(p));
+      // Orientations, one level at a time (grad levels are 2*oct0px apart).
+      std::vector<AngOut> hang(ndet);
+      if (!upright) {
+        std::vector<DetIn> din;
+        std::vector<AngOut> aout;
+        for (int j = 0; j < S; ++j) {
+          if (byjl[j].empty()) continue;
+          din.clear();
+          for (int p : byjl[j]) {
+            const RawDetection* d = order[p];
+            din.push_back({static_cast<float>(d->x / xper),
+                           static_cast<float>(d->y / xper),
+                           static_cast<float>(d->sigma / xper), j});
+          }
+          NGS_CUDA_OK(cudaMemcpyAsync(d_det, din.data(),
+                                      din.size() * sizeof(DetIn),
+                                      cudaMemcpyHostToDevice, st),
+                      "H2D dets");
+          const int bs = 128;
+          const int gs =
+              (static_cast<int>(din.size()) + bs - 1) / bs;
+          OrientKernel<<<gs, bs, 0, st>>>(
+              d_grad + static_cast<size_t>(j) * 2 * oct0px, w, h, d_det,
+              static_cast<int>(din.size()), s_min, s_max, d_ang);
+          NGS_CUDA_OK(cudaGetLastError(), "orient launch");
+          NGS_CUDA_OK(cudaStreamSynchronize(st), "orient sync");
+          aout.resize(din.size());
+          NGS_CUDA_OK(cudaMemcpy(aout.data(), d_ang,
+                                 aout.size() * sizeof(AngOut),
+                                 cudaMemcpyDeviceToHost),
+                      "D2H angles");
+          for (size_t k = 0; k < byjl[j].size(); ++k)
+            hang[byjl[j][k]] = aout[k];
+        }
+      }
+      // Expand orientations (CPU sift.cc: first-K in bin order; fallback 0 so
+      // every keypoint gets at least one descriptor).
+      keep.ranges.assign(ndet, {0, 0});
+      std::vector<OrnIn> orn_all;
+      std::vector<int> orn_jl;
+      std::vector<std::vector<int>> ornjl(S);
+      for (size_t p = 0; p < ndet; ++p) {
+        const RawDetection* d = order[p];
+        const int jl = d->level - s_min - 1;
+        const int st = static_cast<int>(orn_all.size());
+        if (upright) {
+          orn_all.push_back({static_cast<float>(d->x / xper),
+                             static_cast<float>(d->y / xper),
+                             static_cast<float>(d->sigma / xper), 0.0f});
+        } else {
+          int cnt = 0;
+          for (int k = 0; k < hang[p].n && cnt < max_num_orientations;
+               ++k, ++cnt) {
+            orn_all.push_back({static_cast<float>(d->x / xper),
+                               static_cast<float>(d->y / xper),
+                               static_cast<float>(d->sigma / xper),
+                               hang[p].a[k]});
+          }
+          if (cnt == 0) {
+            orn_all.push_back({static_cast<float>(d->x / xper),
+                               static_cast<float>(d->y / xper),
+                               static_cast<float>(d->sigma / xper), 0.0f});
+          }
+        }
+        for (size_t r = st; r < orn_all.size(); ++r) {
+          ornjl[jl].push_back(static_cast<int>(r));
+          keep.kx.push_back(d->x);
+          keep.ky.push_back(d->y);
+          keep.ksig.push_back(d->sigma);
+          keep.kang.push_back(orn_all[r].angle);
+        }
+        keep.ranges[p] = {st, static_cast<int>(orn_all.size()) - st};
+      }
+      if (descriptors != nullptr && !orn_all.empty()) {
+        if (orn_all.size() > kMaxOrnPerOctave) {
+          LOG(WARNING) << "Native GPU SIFT: too many orientations, "
+                          "skipping image";
+          return false;
+        }
+        keep.fdesc.assign(orn_all.size() * kDescDim, 0.0f);
+        std::vector<OrnIn> oslice;
+        std::vector<float> dslice;
+        for (int j = 0; j < S; ++j) {
+          if (ornjl[j].empty()) continue;
+          oslice.clear();
+          for (int r : ornjl[j]) oslice.push_back(orn_all[r]);
+          NGS_CUDA_OK(cudaMemcpyAsync(d_orn, oslice.data(),
+                                      oslice.size() * sizeof(OrnIn),
+                                      cudaMemcpyHostToDevice, st),
+                      "H2D oriented");
+          NGS_CUDA_OK(cudaMemsetAsync(d_desc, 0,
+                                      oslice.size() * kDescDim * sizeof(float),
+                                      st),
+                      "zero desc");
+          const int bs = 128;
+          const int gs =
+              (static_cast<int>(oslice.size()) + bs - 1) / bs;
+          DescKernel<<<gs, bs, 0, st>>>(
+              d_grad + static_cast<size_t>(j) * 2 * oct0px, w, h, d_orn,
+              static_cast<int>(oslice.size()), d_desc);
+          NGS_CUDA_OK(cudaGetLastError(), "desc launch");
+          NGS_CUDA_OK(cudaStreamSynchronize(st), "desc sync");
+          dslice.assign(oslice.size() * kDescDim, 0.0f);
+          NGS_CUDA_OK(cudaMemcpy(dslice.data(), d_desc,
+                                 dslice.size() * sizeof(float),
+                                 cudaMemcpyDeviceToHost),
+                      "D2H desc");
+          for (size_t k = 0; k < ornjl[j].size(); ++k)
+            memcpy(&keep.fdesc[static_cast<size_t>(ornjl[j][k]) * kDescDim],
+                   &dslice[k * kDescDim], kDescDim * sizeof(float));
+        }
+      }
     }
+    oct_keeps.push_back(std::move(keep));
     host_dogs.clear();
     host_dogs.shrink_to_fit();
   }
@@ -646,16 +1022,48 @@ bool NativeGpuSiftExtractor::Extract(const Bitmap& bitmap,
       }
     }
   }
+  // Gather kept rows across octaves (cap rule unchanged from Task 2).
+  std::vector<float> gx, gy, gs, ga, gf;
+  for (size_t i = first_to_keep; i < groups.size(); ++i) {
+    for (const RawDetection& d : groups[i]) {
+      const OctaveKeep& ok = oct_keeps[d.octave - omin];
+      const std::pair<int, int>& rg = ok.ranges[d.det_idx];
+      for (int r = rg.first; r < rg.first + rg.second; ++r) {
+        gx.push_back(ok.kx[r]);
+        gy.push_back(ok.ky[r]);
+        gs.push_back(ok.ksig[r]);
+        ga.push_back(ok.kang[r]);
+        if (descriptors != nullptr) {
+          gf.insert(gf.end(),
+                    ok.fdesc.begin() + static_cast<size_t>(r) * kDescDim,
+                    ok.fdesc.begin() + static_cast<size_t>(r + 1) * kDescDim);
+        }
+      }
+    }
+  }
   keypoints->clear();
-  for (size_t i = first_to_keep; i < groups.size(); ++i)
-    for (const RawDetection& d : groups[i])
-      keypoints->emplace_back(d.x + 0.5f, d.y + 0.5f, d.sigma, 0.0f);
+  keypoints->reserve(gx.size());
+  for (size_t i = 0; i < gx.size(); ++i)
+    keypoints->emplace_back(gx[i] + 0.5f, gy[i] + 0.5f, gs[i], ga[i]);
 
-  // Detection-only: placeholder descriptors, replaced in Task 3.
   if (descriptors != nullptr) {
-    descriptors->data.resize(keypoints->size(), kDescDim);
-    descriptors->data.setZero();
+    THROW_CHECK_EQ(gx.size() * kDescDim, gf.size());
+    FeatureDescriptorsFloatData fmat =
+        Eigen::Map<FeatureDescriptorsFloatData>(
+            gf.data(), static_cast<Eigen::Index>(gx.size()), kDescDim);
+    if (normalization == SiftExtractionOptions::Normalization::L2) {
+      L2NormalizeFeatureDescriptors(&fmat);
+    } else if (normalization ==
+               SiftExtractionOptions::Normalization::L1_ROOT) {
+      L1RootNormalizeFeatureDescriptors(&fmat);
+    } else {
+      LOG(FATAL_THROW) << "Normalization type not supported";
+    }
+    FeatureDescriptorsData ubc;
+    ToUBCOrder(FeatureDescriptorsToUnsignedByte(fmat), &ubc);
+    descriptors->data = std::move(ubc);
     descriptors->type = FeatureExtractorType::SIFT;
+    THROW_CHECK_EQ(keypoints->size(), descriptors->data.rows());
   }
   return true;
 }
