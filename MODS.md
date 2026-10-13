@@ -348,6 +348,22 @@ terpenuhi (onlyB ≤1) di kedua site. kernel-t3 DITUTUP di angka ini
 (re-verifikasi segar 2026-10-12 identik ledger); sisa gap = riset
 algoritmik berikutnya (red-black/densifikasi, butuh gate baru).
 
+### Milestone 2026-10-14 duel OpenSfM (pembanding eksternal, pin `c1fcfcec` 2026-10-08, BSD-2-Clause; tak masuk tree/notices)
+
+Secondary 51 foto, default kedua sisi:
+
+| metrik | hibrida kita | OpenSfM |
+|---|---|---|
+| extract | 275 dtk (GPU) | 101,8 dtk |
+| match | 187 dtk (CPU) | 49,2 dtk |
+| total SfM | 503 dtk | 203,4 dtk |
+| reg | 51/51 | 51/51 |
+| points | 19.833 | 19.962 |
+| track | 5,008 | 5,331 (over-two; definisi beda) |
+| reproj | 0,912px | 0,765px |
+
+VONIS: OpenSfM MENANG (2,5x wall, kualitas ≥ di semua metrik sebanding). Catatan jujur: operating point beda (~5rb vs ~12,7rb fitur/foto) — duel sistem-vs-sistem di foto sama, bukan fitur-sama. Sisa popsift-t1 SELESAI; duel ini menutup kebutuhan pembanding SfM.
+
 ### Root cause mapper crash (0xc0000409 @52 frame, deterministik 2x)
 
 Tersangka terkonfirmasi: `SPARSE_SCHUR+EIGEN_SPARSE` (kombinasi baru:
