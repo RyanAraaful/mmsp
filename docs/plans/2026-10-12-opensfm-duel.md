@@ -41,15 +41,16 @@ Expected: `$PyEnv/python.exe --version` → 3.11.x. Gagal unduh = transien, retr
 
 - [ ] **Step 2: parsecheck + commit.** Pesan `setup: python 3.11 env for opensfm duel`.
 
-### Task 2: Install OpenSfM dari source + catat lisensi (amendemen: PyPI tak menerbitkan `opensfm`, putusan pemilik = source install)
+### Task 2: Install OpenSfM dari source + catat pin di laporan duel (amendemen: PyPI tak menerbitkan `opensfm`, putusan pemilik = source install; pembanding eksternal TAK masuk THIRD_PARTY_NOTICES — preseden OpenMVS)
 
 **Files:**
-- Modify: `THIRD_PARTY_NOTICES.md` (+entri OpenSfM BSD-2-Clause + commit pin), `scripts/setup/install-opensfm.ps1` (git clone OpenSfM/OpenSfM branch master ke `$OpenSfMRoot` + install dari source ke `$PyEnv` + `import opensfm` probe). Catatan: repo mapillary mati upstream (README-nya menunjuk ke fork hidup ini) — JANGAN pakai URL mapillary.
+- Modify: `scripts/setup/install-opensfm.ps1` (dapatkan source OpenSfM/OpenSfM branch master ke `$OpenSfMRoot` + install dari source ke `$PyEnv` + `import opensfm` probe). Cara dapat source, SATU jalur tanpa ulang-ulang: klon HTTP/1.1 dangkal yang sedang jalan; bila gagal → unduh zip codeload `https://github.com/OpenSfM/OpenSfM/archive/refs/heads/master.zip` + ekstrak (pin = tanggal + nama file). Gagal keduanya = STOP blocker.
+- Catat: pin versi (hash commit, atau tanggal+nama-zip bila via arsip) + lisensi BSD-2-Clause di `MODS.md`/laporan duel sebagai provenesansi angka — BUKAN di notices.
 - Test: probe import exit 0 + `opensfm --help` mencetak usage.
 
 - [ ] **Step 1 (RED): probe gagal sebelum install.** Expected: import error tercatat.
 - [ ] **Step 2: install dari source.** Run skrip. Expected: probe lolos. Build C-extension gagal di Windows → STOP + catat blocker (fallback: duel vs baseline internal, putusan pemilik).
-- [ ] **Step 3: commit.** Pesan `setup: opensfm <commit-pin> + license notice`.
+- [ ] **Step 3: commit + catat pin.** Pesan `setup: opensfm <pin> source install`; pin + lisensi masuk `MODS.md`/laporan duel (bukan notices).
 
 ### Task 3: Smoke 3 foto + duel Secondary 51
 
