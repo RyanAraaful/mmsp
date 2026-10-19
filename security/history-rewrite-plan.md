@@ -33,6 +33,11 @@ commits. The two findings in `0d9f706` are the old synthetic allowed-fixture
 example under `security/testdata/allowed/drive-paths.txt`, not personal data;
 replace that literal in the rewrite so the post-rewrite scan is clean.
 
+Until the rewrite lands, those two findings are pinned by fingerprint in
+`.gitleaksignore` so new-branch merge-base scans pass without allowlisting the
+path or the rule. The entries are temporary: remove and re-evaluate them after
+the rewrite, when the full-history scan must be clean without them.
+
 ## Replacement scheme
 
 Mirror the Riltra scheme with MMSP-specific roots:
