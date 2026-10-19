@@ -9,3 +9,7 @@ clean, and `security/scan-tests.sh` copies each fixture to a temporary
 directory (outside the allowlist) to prove the rules actually fire.
 
 Do not place real secrets, real usernames, or real home directories here.
+
+Note: `blocked/synthetic-token.txt` is force-added on purpose — the root
+`.gitignore` ignores `*token*`, which would otherwise keep the fixture out of
+CI checkouts.
