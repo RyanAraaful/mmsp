@@ -1,0 +1,8 @@
+# Temporary, owner-approved exceptions for two synthetic findings in the
+# superseded revision of security/testdata/allowed/drive-paths.txt introduced
+# in 0d9f706 (rewritten by 514c619). Each fingerprint pins the exact
+# commit/path/rule/line: the path, the rule and future content stay scanned.
+# Re-evaluate and remove these entries after the history rewrite
+# (security/history-rewrite-plan.md).
+0d9f706ae350b5aba276ac2a0bd694a92c7b0b1a:security/testdata/allowed/drive-paths.txt:local-absolute-path:2
+0d9f706ae350b5aba276ac2a0bd694a92c7b0b1a:security/testdata/allowed/drive-paths.txt:local-absolute-path:4

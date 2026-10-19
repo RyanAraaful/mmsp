@@ -143,3 +143,7 @@ Applies to (copyright lines verified in-tree):
   CUDA EULA; binary redistributors must reproduce NVIDIA's notices.
   System libraries (OpenGL, MSVC runtime) fall under the system-library
   exception.
+- gitleaks 8.30.1 (MIT, https://github.com/gitleaks/gitleaks) — privacy
+  scanning tool used by the CI `security` workflow and the optional local
+  hooks (`security/`). Fetched as a pinned, checksum-verified release
+  binary at run time; not vendored, not compiled into any MMSP binary.
