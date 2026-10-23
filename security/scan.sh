@@ -77,7 +77,7 @@ artifact_signature_blocked() {
 }
 
 check_changed_blob() {
-  local path="$1" blob="$2" size
+  local path="$1" blob="$2" size nul_free_size
   if artifact_path_blocked "$path"; then
     echo "scan: blocked: changed path matches the dataset/processing artifact policy" >&2
     return 1
@@ -99,7 +99,16 @@ check_changed_blob() {
     echo "scan: blocked: changed file content matches a protected artifact signature" >&2
     return 1
   fi
-  if ! git cat-file blob "$blob" | LC_ALL=C grep -I '' >/dev/null; then
+  nul_free_size="$(set -o pipefail; git cat-file blob "$blob" | LC_ALL=C tr -d '\000' | wc -c)" 2>/dev/null || {
+    echo "scan: fail-closed: could not inspect changed file content" >&2
+    return 4
+  }
+  nul_free_size="${nul_free_size//[[:space:]]/}"
+  case "$nul_free_size" in ''|*[!0-9]*)
+    echo "scan: fail-closed: invalid text byte count" >&2
+    return 4 ;;
+  esac
+  if [ "$nul_free_size" -ne "$size" ]; then
     echo "scan: blocked: changed file has binary content" >&2
     return 1
   fi
@@ -107,7 +116,8 @@ check_changed_blob() {
 }
 
 scan_changed_paths() {
-  local kind="$1" commit="${2:-}" raw header path old_mode new_mode old_blob new_blob status extra rc=0
+  local kind="$1" commit="${2:-}" raw header path old_mode new_mode old_blob new_blob status extra rc=0 parent
+  local -a root_arg=() diff_args=()
   raw="$(mktemp)" || {
     echo "scan: fail-closed: could not create artifact scan input" >&2
     return 4
@@ -119,7 +129,13 @@ scan_changed_paths() {
       return 4
     fi
   else
-    if ! git diff-tree --root --first-parent --no-commit-id --raw -z --no-renames --diff-filter=AM -r "$commit" >"$raw" 2>/dev/null; then
+    if parent="$(git rev-parse --verify "$commit^1" 2>/dev/null)"; then
+      diff_args=("$parent" "$commit")
+    else
+      root_arg=(--root)
+      diff_args=("$commit")
+    fi
+    if ! git diff-tree "${root_arg[@]}" --no-commit-id --raw -z --no-renames --diff-filter=AM -r "${diff_args[@]}" >"$raw" 2>/dev/null; then
       rm -f "$raw"
       echo "scan: fail-closed: commit tree diff is invalid" >&2
       return 4

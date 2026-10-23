@@ -28,8 +28,10 @@ Environment: `GITLEAKS_BIN` (scanner binary; default `gitleaks` from `PATH`),
 The staged, range, new-branch, and outgoing modes inspect added or modified
 Git blobs alongside Gitleaks. Risky photo, point-cloud, survey, archive,
 processing-database, model, and output path/type patterns are rejected; binary
-content is rejected even when its filename looks like text. Rename detection
-is disabled so a copied or renamed destination is checked as a new path.
+signatures and NUL bytes anywhere in a changed blob are rejected even when its
+filename looks like text. Commit blobs are compared with their first parent,
+including merge commits; root commits are compared with the empty tree. Rename
+detection is disabled so a copied or renamed destination is checked as a new path.
 Unchanged tracked files are not rejected by the artifact policy during a tree
 scan. No artifact exceptions are configured; a future public fixture exception
 must name one exact file and have a regression test.
