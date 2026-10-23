@@ -4,23 +4,27 @@ $imagesPath = Join-Path $testRoot 'images'
 $outputDir = Join-Path $testRoot 'output'
 $scriptPath = Join-Path $PSScriptRoot 'process-drone.ps1'
 
+function Invoke-Pipeline([string]$InputPath, [string]$TargetOutput) {
+  $startInfo = [Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+  $startInfo.UseShellExecute = $false
+  $startInfo.Arguments = (@('-NoProfile', '-File', $scriptPath, '-ImagesPath', $InputPath, '-OutputDir', $TargetOutput) |
+    ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' '
+  $process = [Diagnostics.Process]::Start($startInfo)
+  $process.WaitForExit()
+  return $process.ExitCode
+}
+
 $null = New-Item -ItemType Directory -Path $imagesPath -Force
 $null = New-Item -ItemType Directory -Path $outputDir -Force
 
-$startInfo = [Diagnostics.ProcessStartInfo]::new()
-$startInfo.FileName = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-$startInfo.UseShellExecute = $false
-$startInfo.Arguments = (@('-NoProfile', '-File', $scriptPath, '-ImagesPath', $imagesPath, '-OutputDir', $outputDir) |
-  ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' '
-
-$process = [Diagnostics.Process]::Start($startInfo)
-$process.WaitForExit()
+$exitCode = Invoke-Pipeline $imagesPath $outputDir
 
 $summaryPath = Join-Path $outputDir 'run-summary.json'
 if (-not (Test-Path -LiteralPath $summaryPath)) {
   throw 'Expected run-summary.json after the pipeline rejects an empty JPG folder.'
 }
-if ($process.ExitCode -eq 0) {
+if ($exitCode -eq 0) {
   throw 'Expected a nonzero exit code for an input folder without JPG files.'
 }
 
@@ -36,3 +40,20 @@ if (-not (Test-Path -LiteralPath (Join-Path $outputDir 'process-drone.log'))) {
 }
 
 Write-Host 'PASS: empty JPG input fails with a truthful summary and no fused cloud.'
+
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$junctionPath = Join-Path $testRoot 'repo-junction'
+$junctionOutput = Join-Path $testRoot 'junction-output'
+$junctionCreated = $false
+try {
+  $null = New-Item -ItemType Junction -Path $junctionPath -Target $repoRoot -ErrorAction Stop
+  $junctionCreated = $true
+} catch {
+  Write-Host "SKIP: junction rejection check unavailable ($($_.Exception.Message))."
+}
+if ($junctionCreated) {
+  $null = New-Item -ItemType Directory -Path $junctionOutput -Force
+  $junctionExitCode = Invoke-Pipeline (Join-Path $junctionPath 'images') $junctionOutput
+  if ($junctionExitCode -eq 0) { throw 'Expected ImagesPath through a repository junction to fail.' }
+  Write-Host 'PASS: repository junction paths are rejected before processing.'
+}
