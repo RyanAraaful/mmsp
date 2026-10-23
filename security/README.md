@@ -1,4 +1,4 @@
-# Security scans (secrets + local machine paths)
+# Security scans (secrets, local paths, and added artifacts)
 
 Pinned scanner: **gitleaks 8.30.1** (MIT, github.com/gitleaks/gitleaks), plus
 three custom rules in `.gitleaks.toml` for local machine paths: Windows
@@ -11,9 +11,9 @@ stay enabled.
 
 | Trigger | Command | Coverage |
 | --- | --- | --- |
-| pre-commit hook | `security/scan.sh staged` | staged changes |
-| pre-push hook | `security/scan.sh outgoing` | commits being pushed + pushed tip tree |
-| CI `security` job (push/PR) | `security/scan.sh range <before/base>..<head>` (new branch: `security/scan.sh new-branch <default>` = merge-base..HEAD) + `security/scan.sh tree` | commits introduced by this push/branch + whole committed tree |
+| pre-commit hook | `security/scan.sh staged` | staged changes: secrets, paths, and changed artifact blobs |
+| pre-push hook | `security/scan.sh outgoing` | outgoing commits, changed artifact blobs, and each pushed tip tree |
+| CI `security` job (push/PR) | `security/scan.sh range <before/base>..<head>` (new branch: `security/scan.sh new-branch <default>` = merge-base..HEAD) + `security/scan.sh tree` | introduced commits and artifacts + whole committed tree |
 | manual | `security/scan.sh tree \| range A..B \| new-branch <default> \| dir <path>` | as requested |
 
 Exit codes: `0` clean, `1` findings, `3` scanner unavailable (fail-closed),
@@ -22,6 +22,19 @@ Findings are printed redacted; secret values are never echoed.
 
 Environment: `GITLEAKS_BIN` (scanner binary; default `gitleaks` from `PATH`),
 `GITLEAKS_CONFIG` (default: this repository's `.gitleaks.toml`).
+
+## Added artifact policy
+
+The staged, range, new-branch, and outgoing modes inspect added or modified
+Git blobs alongside Gitleaks. Risky photo, point-cloud, survey, archive,
+processing-database, model, and output path/type patterns are rejected; binary
+signatures and NUL bytes anywhere in a changed blob are rejected even when its
+filename looks like text. Commit blobs are compared with their first parent,
+including merge commits; root commits are compared with the empty tree. Rename
+detection is disabled so a copied or renamed destination is checked as a new path.
+Unchanged tracked files are not rejected by the artifact policy during a tree
+scan. No artifact exceptions are configured; a future public fixture exception
+must name one exact file and have a regression test.
 
 ## Install the pinned scanner
 
