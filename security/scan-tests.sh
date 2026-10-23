@@ -89,6 +89,169 @@ git -C "$repo" add staged-leak.txt
 got=$?
 if [ "$got" -eq 1 ]; then ok "staged leak is blocked"; else no "staged leak is blocked (want exit 1, got $got)"; fi
 
+# 13: newly staged artifact paths and binary content are blocked, while source text is allowed.
+artifactrepo="$TMP/artifact-case"
+mkdir -p "$artifactrepo"
+git -C "$artifactrepo" init -q
+printf 'clean\n' >"$artifactrepo/README.md"
+git -C "$artifactrepo" add README.md
+git -C "$artifactrepo" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "clean artifact-test base"
+expect_staged_result() { # label path expected_exit [binary]
+  label="$1"; path="$2"; want="$3"; kind="${4:-text}"
+  mkdir -p "$artifactrepo/$(dirname "$path")"
+  if [ "$kind" = binary ]; then printf '\211PNG\r\n\032\n\000synthetic-only' >"$artifactrepo/$path"
+  elif [ "$kind" = jpeg-signature ]; then printf '\377\330\377synthetic-only' >"$artifactrepo/$path"
+  else printf 'synthetic test text only\n' >"$artifactrepo/$path"; fi
+  git -C "$artifactrepo" add -- "$path"
+  ( cd "$artifactrepo" && "$SCAN" staged ) >"$TMP/$label.out" 2>&1
+  got=$?
+  if [ "$got" -eq "$want" ]; then ok "$label"; else no "$label (want exit $want, got $got)"; fi
+  git -C "$artifactrepo" reset -q -- "$path"
+  rm -f -- "$artifactrepo/$path"
+  rmdir "$artifactrepo/$(dirname "$path")" 2>/dev/null || true
+}
+expect_staged_result "staged photo extension blocked" "synthetic-photo.jpg" 1
+expect_staged_result "staged survey path blocked" "survey/trajectory.txt" 1
+expect_staged_result "staged disguised binary blocked" "synthetic-payload.txt" 1 binary
+expect_staged_result "staged disguised photo signature blocked" "jpeg-signature.txt" 1 jpeg-signature
+expect_staged_result "staged source text allowed" "src/example.cpp" 0
+
+# New destinations from rename/copy are additions and must pass the same guard.
+git -C "$artifactrepo" mv README.md renamed-photo.png
+( cd "$artifactrepo" && "$SCAN" staged ) >"$TMP/renamed-artifact.out" 2>&1
+got=$?
+if [ "$got" -eq 1 ]; then ok "renamed artifact destination is blocked"; else no "renamed artifact destination is blocked (want exit 1, got $got)"; fi
+git -C "$artifactrepo" reset -q -- .
+git -C "$artifactrepo" checkout -q -- README.md
+rm -f "$artifactrepo/renamed-photo.png"
+cp "$artifactrepo/README.md" "$artifactrepo/copied-model.onnx"
+git -C "$artifactrepo" add copied-model.onnx
+( cd "$artifactrepo" && "$SCAN" staged ) >"$TMP/copied-artifact.out" 2>&1
+got=$?
+if [ "$got" -eq 1 ]; then ok "copied artifact destination is blocked"; else no "copied artifact destination is blocked (want exit 1, got $got)"; fi
+git -C "$artifactrepo" reset -q -- copied-model.onnx
+rm -f "$artifactrepo/copied-model.onnx"
+
+# Hooks are exercised in isolated repositories with local-only remotes.
+prepare_hook_repo() { # path pre-commit|pre-push
+  hookrepo="$1"; hookkind="$2"
+  mkdir -p "$hookrepo/.githooks" "$hookrepo/security"
+  cp "$SCAN" "$hookrepo/security/scan.sh"
+  cp "$ROOT/.gitleaks.toml" "$hookrepo/.gitleaks.toml"
+  if [ "$hookkind" = pre-commit ]; then cp "$ROOT/.githooks/pre-commit" "$hookrepo/.githooks/pre-commit"; fi
+  if [ "$hookkind" = pre-push ]; then cp "$ROOT/.githooks/pre-push" "$hookrepo/.githooks/pre-push"; fi
+  chmod +x "$hookrepo/security/scan.sh" "$hookrepo/.githooks/"*
+  git -C "$hookrepo" init -q -b main
+  git -C "$hookrepo" config user.name scan-test
+  git -C "$hookrepo" config user.email scan-test@example.invalid
+  git -C "$hookrepo" config core.hooksPath .githooks
+  printf 'clean\n' >"$hookrepo/README.md"
+  git -C "$hookrepo" add README.md .githooks security/scan.sh .gitleaks.toml
+  git -C "$hookrepo" commit -q -m "clean hook-test base"
+}
+
+hookrepo="$TMP/pre-commit-hook-case"
+prepare_hook_repo "$hookrepo" pre-commit
+hooks_path="$(git -C "$hookrepo" config --local --get core.hooksPath)"
+if [ "$hooks_path" = .githooks ]; then ok "pre-commit hook path is active"; else no "pre-commit hook path is active"; fi
+expect_hook_commit_block() { # label path kind
+  label="$1"; path="$2"; kind="$3"
+  mkdir -p "$hookrepo/$(dirname "$path")"
+  case "$kind" in
+    path) cp "$TD/blocked/local-drive-path.txt" "$hookrepo/$path" ;;
+    token) printf '%s' "$TOKEN_VALUE" >"$hookrepo/$path" ;;
+    artifact) printf 'synthetic test text only\n' >"$hookrepo/$path" ;;
+  esac
+  git -C "$hookrepo" add -- "$path"
+  before="$(git -C "$hookrepo" rev-parse HEAD)"
+  if [ "$kind" = path ]; then git -C "$hookrepo" commit -q -m "$label" >"$TMP/hook-$kind.out" 2>&1
+  elif [ "$kind" = token ]; then git -C "$hookrepo" commit -q -m "$label" >"$TMP/hook-$kind.out" 2>&1
+  else git -C "$hookrepo" commit -q -m "$label" >"$TMP/hook-$kind.out" 2>&1
+  fi
+  got=$?
+  after="$(git -C "$hookrepo" rev-parse HEAD)"
+  if [ "$got" -ne 0 ] && [ "$before" = "$after" ]; then ok "$label"; else no "$label (hook did not block)"; fi
+  git -C "$hookrepo" reset -q -- "$path"
+  rm -f -- "$hookrepo/$path"
+  rmdir "$hookrepo/$(dirname "$path")" 2>/dev/null || true
+}
+expect_hook_commit_block "pre-commit blocks synthetic local path" "path-leak.txt" path
+expect_hook_commit_block "pre-commit blocks synthetic token" "token-leak.txt" token
+expect_hook_commit_block "pre-commit blocks synthetic image" "synthetic.png" artifact
+printf 'clean\n' >"$hookrepo/scanner-unavailable.txt"
+git -C "$hookrepo" add scanner-unavailable.txt
+before="$(git -C "$hookrepo" rev-parse HEAD)"
+GITLEAKS_BIN="$TMP/missing-scanner" git -C "$hookrepo" commit -q -m "scanner unavailable must block" >"$TMP/hook-missing-scanner.out" 2>&1
+got=$?
+after="$(git -C "$hookrepo" rev-parse HEAD)"
+if [ "$got" -ne 0 ] && [ "$before" = "$after" ]; then ok "pre-commit fails closed without scanner"; else no "pre-commit fails closed without scanner"; fi
+git -C "$hookrepo" reset -q -- scanner-unavailable.txt
+rm -f "$hookrepo/scanner-unavailable.txt"
+
+pushhookrepo="$TMP/pre-push-hook-case"
+pushremote="$TMP/pre-push-local-remote.git"
+prepare_hook_repo "$pushhookrepo" pre-push
+git init -q --bare "$pushremote"
+git -C "$pushhookrepo" remote add origin "$pushremote"
+git -C "$pushhookrepo" push -q -u origin main >"$TMP/pre-push-clean.out" 2>&1
+got=$?
+base_push="$(git --git-dir="$pushremote" rev-parse refs/heads/main 2>/dev/null)"
+if [ "$got" -eq 0 ]; then ok "pre-push allows a clean local push"; else no "pre-push allows a clean local push"; fi
+printf 'synthetic artifact placeholder\n' >"$pushhookrepo/synthetic-cloud.ply"
+git -C "$pushhookrepo" add synthetic-cloud.ply
+git -C "$pushhookrepo" commit -q -m "synthetic artifact for pre-push test"
+git -C "$pushhookrepo" push origin main >"$TMP/pre-push-artifact.out" 2>&1
+got=$?
+after_push="$(git --git-dir="$pushremote" rev-parse refs/heads/main 2>/dev/null)"
+if [ "$got" -ne 0 ] && [ "$base_push" = "$after_push" ]; then ok "pre-push blocks artifact before local remote update"; else no "pre-push blocks artifact before local remote update"; fi
+git -C "$pushhookrepo" checkout -q -b scanner-unavailable "$base_push"
+printf 'clean\n' >"$pushhookrepo/scanner-unavailable.txt"
+git -C "$pushhookrepo" add scanner-unavailable.txt
+git -C "$pushhookrepo" commit -q -m "scanner unavailable pre-push test"
+GITLEAKS_BIN="$TMP/missing-scanner" git -C "$pushhookrepo" push -u origin scanner-unavailable >"$TMP/pre-push-missing-scanner.out" 2>&1
+got=$?
+remote_missing_branch=0;git --git-dir="$pushremote" show-ref --verify --quiet refs/heads/scanner-unavailable || remote_missing_branch=$?
+if [ "$got" -ne 0 ] && [ "$remote_missing_branch" -ne 0 ]; then ok "pre-push fails closed without scanner"; else no "pre-push fails closed without scanner"; fi
+
+# Range and new-branch CI modes enforce the same artifact policy.
+rangeartifact="$TMP/artifact-range-case"
+mkdir -p "$rangeartifact"
+git -C "$rangeartifact" init -q
+printf 'clean\n' >"$rangeartifact/README.md"
+git -C "$rangeartifact" add README.md
+git -C "$rangeartifact" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "clean range base"
+rangebase="$(git -C "$rangeartifact" rev-parse HEAD)"
+printf 'synthetic result placeholder\n' >"$rangeartifact/survey-results.csv"
+git -C "$rangeartifact" add survey-results.csv
+git -C "$rangeartifact" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "synthetic range artifact"
+rangehead="$(git -C "$rangeartifact" rev-parse HEAD)"
+( cd "$rangeartifact" && "$SCAN" range "$rangebase..$rangehead" ) >"$TMP/range-artifact.out" 2>&1
+got=$?
+if [ "$got" -eq 1 ]; then ok "range blocks a newly added survey artifact"; else no "range blocks a newly added survey artifact (want exit 1, got $got)"; fi
+
+newartifact="$TMP/artifact-new-branch-case"
+mkdir -p "$newartifact"
+git -C "$newartifact" init -q
+printf 'clean\n' >"$newartifact/README.md"
+git -C "$newartifact" add README.md
+git -C "$newartifact" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "clean new-branch base"
+newbase="$(git -C "$newartifact" rev-parse HEAD)"
+git -C "$newartifact" update-ref refs/remotes/origin/main "$newbase"
+git -C "$newartifact" checkout -q -b feature
+printf 'synthetic model placeholder\n' >"$newartifact/model-output.pth"
+git -C "$newartifact" add model-output.pth
+git -C "$newartifact" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "synthetic new-branch artifact"
+( cd "$newartifact" && "$SCAN" new-branch main ) >"$TMP/newbranch-artifact.out" 2>&1
+got=$?
+if [ "$got" -eq 1 ]; then ok "new branch blocks a newly added model artifact"; else no "new branch blocks a newly added model artifact (want exit 1, got $got)"; fi
+
+( cd "$rangeartifact" && "$SCAN" range no-such-range ) >"$TMP/range-invalid.out" 2>&1
+got=$?
+if [ "$got" -eq 4 ]; then ok "invalid Git range fails closed"; else no "invalid Git range fails closed (want exit 4, got $got)"; fi
+printf 'malformed input\n' | ( cd "$rangeartifact" && "$SCAN" outgoing ) >"$TMP/outgoing-invalid.out" 2>&1
+got=$?
+if [ "$got" -eq 4 ]; then ok "malformed pre-push input fails closed"; else no "malformed pre-push input fails closed (want exit 4, got $got)"; fi
+
 # allowlists are per fixture file, not per directory: a new file under
 # security/testdata is still scanned even though the known fixtures are allowed
 SCANNER="${GITLEAKS_BIN:-gitleaks}"
