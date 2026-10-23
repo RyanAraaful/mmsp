@@ -101,6 +101,9 @@ expect_staged_result() { # label path expected_exit [binary]
   mkdir -p "$artifactrepo/$(dirname "$path")"
   if [ "$kind" = binary ]; then printf '\211PNG\r\n\032\n\000synthetic-only' >"$artifactrepo/$path"
   elif [ "$kind" = jpeg-signature ]; then printf '\377\330\377synthetic-only' >"$artifactrepo/$path"
+  elif [ "$kind" = nul-tail ]; then
+    printf 'synthetic text line\n%.0s' {1..8192} >"$artifactrepo/$path"
+    printf '\000' >>"$artifactrepo/$path"
   else printf 'synthetic test text only\n' >"$artifactrepo/$path"; fi
   git -C "$artifactrepo" add -- "$path"
   ( cd "$artifactrepo" && "$SCAN" staged ) >"$TMP/$label.out" 2>&1
@@ -114,6 +117,7 @@ expect_staged_result "staged photo extension blocked" "synthetic-photo.jpg" 1
 expect_staged_result "staged survey path blocked" "survey/trajectory.txt" 1
 expect_staged_result "staged disguised binary blocked" "synthetic-payload.txt" 1 binary
 expect_staged_result "staged disguised photo signature blocked" "jpeg-signature.txt" 1 jpeg-signature
+expect_staged_result "staged trailing NUL after long text blocked" "nul-tail.txt" 1 nul-tail
 expect_staged_result "staged source text allowed" "src/example.cpp" 0
 
 # New destinations from rename/copy are additions and must pass the same guard.
@@ -228,6 +232,63 @@ rangehead="$(git -C "$rangeartifact" rev-parse HEAD)"
 ( cd "$rangeartifact" && "$SCAN" range "$rangebase..$rangehead" ) >"$TMP/range-artifact.out" 2>&1
 got=$?
 if [ "$got" -eq 1 ]; then ok "range blocks a newly added survey artifact"; else no "range blocks a newly added survey artifact (want exit 1, got $got)"; fi
+
+# A merge result can add a file that exists in neither parent, so compare it
+# with its first parent and exercise the pre-push hook against a local remote.
+mergerepo="$TMP/artifact-merge-case"
+mergeremote="$TMP/artifact-merge-local-remote.git"
+prepare_hook_repo "$mergerepo" pre-push
+mergebase="$(git -C "$mergerepo" rev-parse HEAD)"
+git init --bare -q "$mergeremote"
+git -C "$mergerepo" remote add origin "$mergeremote"
+git -C "$mergerepo" push -q origin main >"$TMP/merge-baseline-push.out" 2>&1
+got=$?
+if [ "$got" -eq 0 ]; then ok "pre-push allows the clean merge-test baseline"; else no "pre-push allows the clean merge-test baseline (got $got)"; fi
+git -C "$mergerepo" checkout -q -b topic
+printf 'topic edit\n' >"$mergerepo/README.md"
+git -C "$mergerepo" add README.md
+git -C "$mergerepo" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "topic edit"
+git -C "$mergerepo" checkout -q main
+printf 'main edit\n' >"$mergerepo/README.md"
+git -C "$mergerepo" add README.md
+git -C "$mergerepo" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "main edit"
+git -C "$mergerepo" merge --no-commit topic >"$TMP/merge-conflict.out" 2>&1 || true
+printf 'resolved merge\n' >"$mergerepo/README.md"
+printf 'synthetic merge-only artifact\n' >"$mergerepo/cloud.ply"
+git -C "$mergerepo" add README.md cloud.ply
+git -C "$mergerepo" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "merge adds synthetic artifact"
+mergehead="$(git -C "$mergerepo" rev-parse HEAD)"
+merge_parent_count="$(git -C "$mergerepo" rev-list --parents -n 1 "$mergehead" | awk '{print NF - 1}')"
+if [ "$merge_parent_count" -eq 2 ]; then ok "merge fixture is a two-parent commit"; else no "merge fixture is a two-parent commit"; fi
+( cd "$mergerepo" && "$SCAN" range "$mergebase..$mergehead" ) >"$TMP/merge-range.out" 2>&1
+got=$?
+if [ "$got" -eq 1 ]; then ok "range blocks an artifact added only by a merge commit"; else no "range blocks an artifact added only by a merge commit (want exit 1, got $got)"; fi
+git -C "$mergerepo" push origin main >"$TMP/merge-pre-push.out" 2>&1
+got=$?
+merge_remote_after="$(git --git-dir="$mergeremote" rev-parse refs/heads/main 2>/dev/null)"
+if [ "$got" -ne 0 ] && [ "$mergebase" = "$merge_remote_after" ]; then ok "pre-push blocks an artifact added only by a merge commit"; else no "pre-push blocks an artifact added only by a merge commit"; fi
+
+# Root commits are compared with Git's empty tree.
+rootrepo="$TMP/root-artifact-hook-case"
+rootremote="$TMP/root-artifact-local-remote.git"
+mkdir -p "$rootrepo/.githooks" "$rootrepo/security"
+git -C "$rootrepo" init -q -b main
+git -C "$rootrepo" config user.name scan-test
+git -C "$rootrepo" config user.email scan-test@example.invalid
+git -C "$rootrepo" config core.hooksPath .githooks
+cp "$SCAN" "$rootrepo/security/scan.sh"
+cp "$ROOT/.gitleaks.toml" "$rootrepo/.gitleaks.toml"
+cp "$ROOT/.githooks/pre-push" "$rootrepo/.githooks/pre-push"
+chmod +x "$rootrepo/security/scan.sh" "$rootrepo/.githooks/pre-push"
+printf 'synthetic root artifact\n' >"$rootrepo/root-cloud.ply"
+git -C "$rootrepo" add root-cloud.ply .githooks security/scan.sh .gitleaks.toml
+git -C "$rootrepo" -c user.name=scan-test -c user.email=scan-test@example.invalid -c commit.gpgsign=false commit -q -m "root artifact fixture"
+git init --bare -q "$rootremote"
+git -C "$rootrepo" remote add origin "$rootremote"
+git -C "$rootrepo" push -u origin main >"$TMP/root-pre-push.out" 2>&1
+got=$?
+root_remote_missing=0;git --git-dir="$rootremote" show-ref --verify --quiet refs/heads/main || root_remote_missing=$?
+if [ "$got" -ne 0 ] && [ "$root_remote_missing" -ne 0 ]; then ok "pre-push blocks an artifact in a root commit"; else no "pre-push blocks an artifact in a root commit"; fi
 
 newartifact="$TMP/artifact-new-branch-case"
 mkdir -p "$newartifact"
