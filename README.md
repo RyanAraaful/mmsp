@@ -40,36 +40,33 @@ instead of cryptic errors.
 
 ## Quickstart
 
+With the local COLMAP build and `env.local.ps1` configured, process a
+folder of drone JPGs with one command. Choose a new or empty output folder
+outside the repository:
+
 ```powershell
-# 1. build (never rebuild while a run is in progress: Windows file lock)
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/build-mx150.ps1
-
-# 2. dense patch-match + fusion at 700 px (Primary winning flags shown)
-colmap patch_match_stereo --workspace_path <dense-workspace> \
-  --workspace_format COLMAP --PatchMatchStereo.max_image_size 700 \
-  --PatchMatchStereo.gpu_index 0 --PatchMatchStereo.window_radius 3 \
-  --PatchMatchStereo.window_step 2 --PatchMatchStereo.num_iterations 1 \
-  --PatchMatchStereo.min_triangulation_angle 1.0 \
-  --PatchMatchStereo.max_triangulation_angle 65.0 \
-  --PatchMatchStereo.pyramid_levels 1 \
-  --PatchMatchStereo.filter_min_confidence 0.2
-colmap stereo_fusion --workspace_path <dense-workspace> \
-  --workspace_format COLMAP --input_type geometric \
-  --output_path <fused.ply> --StereoFusion.max_depth_error 0.1 \
-  --StereoFusion.fuse_prior_weight 1.0
-
-# 3. numeric quality report vs a reference cloud (dependency-free C++17)
-cl /O2 /std:c++17 tools\metrics.cpp   # -> metrics.exe
-metrics.exe <ours.ply> <reference.ply> --pgm <holemap-prefix>
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run/process-drone.ps1 `
+  -ImagesPath <drone-photo-folder> `
+  -OutputDir <new-output-folder>
 ```
 
-SfM + undistort + OpenMVS-compare helpers live in `scripts/setup/`;
-the frozen dense harness is `scripts/run/run-ablate.ps1`.
+The output folder contains `dense/fused.ply`, `run-summary.json`,
+`process-drone.log`, the SfM database and sparse model, and the dense
+workspace. A failed stage returns a nonzero exit code and a failed summary.
+The runner uses CPU SIFT and the benchmarked 700 px dense configuration.
+It does not modify the source photos.
+
+For point-cloud metrics against a reference cloud, build the existing
+dependency-free C++17 tool with `cl /O2 /std:c++17 tools\metrics.cpp`, then
+run `metrics.exe <ours.ply> <reference.ply> --pgm <holemap-prefix>`.
+
+The frozen dense ablation harness remains in `scripts/run/run-ablate.ps1`.
 
 ## Layout
 
 - `colmap/` — engine source (upstream base plus `mvs/` modifications)
 - `scripts/run/` — ablation harness + per-experiment launchers
+- `scripts/run/process-drone.ps1` — end-to-end drone photos to fused PLY
 - `scripts/measure/` — profiler wrappers, check scripts, `metrics-*.ps1`
 - `scripts/setup/` — build/configure, SfM, undistort, compare helpers
 - `tools/` — `metrics.cpp`, `parsecheck.ps1`
