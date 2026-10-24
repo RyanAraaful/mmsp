@@ -19,7 +19,8 @@ function Invoke-Pipeline {
     [string]$RunnerPath,
     [string]$ValidationFailure,
     [switch]$ClearCudaHome,
-    [switch]$EmitStderr
+    [switch]$EmitStderr,
+    [switch]$NativeGpuSift
   )
 
   if (-not $RunnerPath) { $RunnerPath = $scriptPath }
@@ -31,6 +32,7 @@ function Invoke-Pipeline {
   $arguments = @('-NoProfile', '-File', $RunnerPath, '-ImagesPath', $InputPath, '-OutputDir', $TargetOutput)
   if ($ColmapPath) { $arguments += @('-ColmapExe', $ColmapPath) }
   if (-not [string]::IsNullOrEmpty($GpuIndex)) { $arguments += @('-GpuIndex', $GpuIndex) }
+  if ($NativeGpuSift) { $arguments += '-NativeGpuSift' }
   $startInfo.Arguments = (@($arguments | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' ')
   if ($ClearCudaHome) {
     [void]$startInfo.EnvironmentVariables.Remove('MMSP_CUDA_HOME')
@@ -205,7 +207,24 @@ if ($patchArguments.Count -ne 1 -or $patchArguments[0] -notmatch '--PatchMatchSt
   throw 'Expected the selected GPU index to reach PatchMatch.'
 }
 if ((Get-Content -LiteralPath $gpuIndexPath -Raw) -ne '3') { throw 'The fake COLMAP executable was not selected.' }
+$cpuExtractArguments = @(Get-Content -LiteralPath $fakeArgsPath | Where-Object { $_.StartsWith("feature_extractor`t", [StringComparison]::Ordinal) })
+if ($cpuExtractArguments.Count -ne 1 -or $cpuExtractArguments[0] -match '--SiftExtraction.use_gpu_native') {
+  throw 'The default runner must keep native CUDA SIFT extraction disabled.'
+}
 Write-Host 'PASS: fake COLMAP success reports valid summary JSON, stage events, output path, and selected GPU.'
+
+$nativeGpuOutput = Join-Path $testRoot 'native-gpu-output'
+$nativeGpu = Invoke-Pipeline $imagesPath $nativeGpuOutput $fakeColmapPath '0' $null $null $null -NativeGpuSift
+if ($nativeGpu.ExitCode -ne 0 -or (Read-Summary $nativeGpuOutput).status -ne 'success') {
+  throw 'The opt-in native CUDA SIFT run must complete with the fake COLMAP pipeline.'
+}
+$nativeGpuExtractArguments = @(Get-Content -LiteralPath $fakeArgsPath | Where-Object { $_.StartsWith("feature_extractor`t", [StringComparison]::Ordinal) } | Select-Object -Last 1)
+if ($nativeGpuExtractArguments.Count -ne 1 -or
+    $nativeGpuExtractArguments[0] -notmatch '--FeatureExtraction.use_gpu\t0(?:\t|$)' -or
+    $nativeGpuExtractArguments[0] -notmatch '--SiftExtraction.use_gpu_native\t1(?:\t|$)') {
+  throw 'The native CUDA SIFT opt-in must keep COLMAP GPU mode off and enable only the existing native SIFT extractor.'
+}
+Write-Host 'PASS: native CUDA SIFT is off by default and opt-in passes the existing extractor flag with CUDA SIFT defaults preserved.'
 
 $stderrOutput = Join-Path $testRoot 'stderr-success-output'
 $stderrSuccess = Invoke-Pipeline $imagesPath $stderrOutput $fakeColmapPath '0' $null $null $null -EmitStderr
