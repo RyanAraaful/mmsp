@@ -56,6 +56,22 @@ workspace. A failed stage returns a nonzero exit code and a failed summary.
 The runner uses CPU SIFT and the benchmarked 700 px dense configuration.
 It does not modify the source photos.
 
+## External process contract
+
+The runner can be called as a child process. Pass `-ColmapExe` to select a
+standalone or non-default executable; `-GpuIndex` selects the PatchMatch GPU
+and VRAM sampler (default `0`). The development default remains the executable
+resolved by `scripts/env.ps1`.
+
+Each stage writes a line beginning `MMSP_STAGE_EVENT ` followed by compact
+JSON with `schemaVersion`, `stage`, `status`, and `timestampUtc`; status is
+`started`, `completed`, or `failed`. The caller can ignore the COLMAP log
+lines and parse these events directly. A stage reports `completed` only after
+its expected output passes validation. `run-summary.json` keeps its existing
+fields and adds `schemaVersion: 1` and `fusedCloudPath: "dense/fused.ply"`,
+relative to `OutputDir`. A successful run exits `0`; a failed run exits
+nonzero and records `status: "failed"`.
+
 For point-cloud metrics against a reference cloud, build the existing
 dependency-free C++17 tool with `cl /O2 /std:c++17 tools\metrics.cpp`, then
 run `metrics.exe <ours.ply> <reference.ply> --pgm <holemap-prefix>`.
@@ -85,5 +101,8 @@ atomic commits) — full contract in [`CONTRIBUTING.md`](CONTRIBUTING.md).
   files with any distribution).
 - `colmap/` is upstream COLMAP (BSD-3-Clause) plus the engine
   modifications in the `kernel ...` commit(s).
-- No GPL/AGPL code is built or executed here. SiftGPU is removed from
-  the tree (never present in binaries); the pipeline runs CPU SIFT.
+- SiftGPU is removed from the tree and the pipeline runs CPU SIFT. The
+  verified Windows profile uses static `/MT` dependencies and has no
+  GPL/LGPL-family DLLs in its runtime closure; the stale dynamic build is
+  rejected by the packager. CUDA and Windows runtime prerequisites are listed
+  in [`docs/runtime/README.md`](docs/runtime/README.md).

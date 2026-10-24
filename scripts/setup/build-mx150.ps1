@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+  [ValidatePattern('^[A-Za-z0-9_-][A-Za-z0-9_.-]*$')][string]$BuildDirectory = 'build-mx150-final'
+)
+
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../env.ps1')
 # Load MSVC env (vcvars64) into this process
@@ -8,5 +13,5 @@ foreach ($line in $vc) {
 }
 Set-Location "$RepoRoot\colmap"
 $cmake = "$CMakeExe"
-& $cmake --build build-mx150 --config Release --parallel 6
+& $cmake --build $BuildDirectory --config Release --parallel 6
 exit $LASTEXITCODE

@@ -527,3 +527,164 @@ Apache-2.0 untuk karya orisinal (`LICENSE`, Copyright 2026 RyanAraaful).
 `THIRD_PARTY_NOTICES.md` ditulis dari sumber primer (teks penuh BSD/MIT
 terverifikasi, pointer MPL-2.0/BSL-2.0/EULA). Koreksi: Ceres = BSD-3
 (file copyright vcpkg), bukan Apache seperti baris audit lama.
+
+### D1 end-to-end baseline (2026-10-24, MX150)
+
+Sumber: run-summary D1 terbaru yang tersedia lokal; 117 JPG, 117 terdaftar,
+`dense/fused.ply` 3.521.155 titik, 859,562 dtk (14m 19,562 dtk), peak VRAM
+203 MB dari 555 sampel, input tidak berubah, status `success`, tanpa OOM.
+Timing tahap: feature extraction 272,506 dtk (31,7%), sequential matching
+291,773 dtk (34,0%), mapping 97,296 dtk (11,3%), undistortion 49,285 dtk
+(5,7%), PatchMatch 99,821 dtk (11,6%), fusion 42,250 dtk (4,9%). Model
+analysis 0,341 dtk; snapshot input 2,567 dtk; integrity check 3,159 dtk.
+
+Keputusan F3: sequential matching dan extraction mendominasi (564,279 dtk,
+65,6% total); keduanya berada di internals SfM yang di luar scope perubahan
+ini. PatchMatch + fusion memakai 142,071 dtk (16,5% total), tanpa bukti
+bottleneck kernel yang membenarkan rewrite. Pertahankan konfigurasi D1 untuk
+QA final; tidak ada eksperimen optimasi yang dilakukan. Pengukuran
+`tools/metrics.exe` terhadap cloud OpenMVS lokal (`scene_dense.ply`), 0,5 m
+occupancy dan sampel 50.000 titik: coverage ours-of-reference 0,970899,
+C2C ours→reference median 0,070916 m / p90 0,138137 m, outlier ours 8,528%
+dan reference 3,236%. Ini pembanding antar-engine pada site yang sama,
+bukan akurasi survey-grade; hasil final akan diukur dengan alat dan referensi
+yang sama.
+
+### Finalisasi kontrak proses D1 (2026-10-24)
+
+`process-drone.ps1` mempertahankan argumen `-ImagesPath` / `-OutputDir` dan
+field summary lama; summary v1 menambah `schemaVersion: 1` serta
+`fusedCloudPath: "dense/fused.ply"` relatif terhadap output. Baris stdout
+`MMSP_STAGE_EVENT ` berisi JSON per-stage untuk `started`, `completed`, dan
+`failed`. `-ColmapExe` menerima binary eksplisit tanpa memuat konfigurasi
+developer; bila tidak diberikan, perilaku development lama dipertahankan.
+`-GpuIndex` (default 0) dipakai PatchMatch dan sampler VRAM.
+
+Verifikasi: `test-process-drone.ps1` lulus di Windows PowerShell 5.1 dan
+PowerShell 7; kedua script lulus `tools/parsecheck.ps1` pada kedua versi.
+Fake-COLMAP menguji JSON, event, path, GPU, kegagalan exit 7, executable
+hilang, indeks GPU invalid, perlindungan output non-empty, serta validasi
+pasca-COLMAP yang gagal. Event `completed` baru dikirim setelah output tahap
+lulus validasi; validasi mapper atau PatchMatch yang gagal menghasilkan event
+`failed`.
+
+### Status build/runtime RTX 3050 dan jalur lisensi (2026-10-24)
+
+Cache `colmap/build-mx150/CMakeCache.txt` menunjuk ke source checkout lain;
+binary dan DLL closure lokal di folder itu bukan bukti build dari branch ini
+dan packager kini menolaknya. Audit artefak lama tetap menunjukkan mengapa
+triplet dinamis tidak dapat didistribusikan: `libgfortran-5.dll` dan
+`libgcc_s_seh-1.dll` berlisensi GPL-3.0 dengan GCC Runtime Library Exception
+3.1, `libquadmath-0.dll` LGPL-2.1, dan `libwinpthread-1.dll` MIT-style.
+`libwinpthread` bersifat permissive dan bukan blocker tersendiri, tetapi tidak
+dibutuhkan oleh profile statis terverifikasi dan memerlukan notice/map bila
+kelak dikemas. GCC exception memberi izin tambahan untuk kombinasi tertentu,
+tetapi kebijakan permissive-only repo tetap mengecualikan komponen GPL/LGPL.
+
+Audit port vcpkg menunjukkan jalur konfigurasi tanpa perubahan kode Faiss:
+triplet `x64-windows-static` memilih CLAPACK (`ports/lapack/vcpkg.json` dan
+`portfile.cmake`) sebagai LAPACK, dengan OpenBLAS sebagai BLAS. OpenBLAS
+0.3.33 berlisensi BSD-3-Clause dan port mengaktifkan `NOFORTRAN=ON`;
+CLAPACK didistribusikan dengan `COPYING` BSD-3-Clause meski field SPDX port
+kosong. Faiss menggunakan provider BLAS/LAPACK yang dipasok CMake/vcpkg;
+`FAISS_ENABLE_MKL` dimatikan eksplisit agar tidak memilih backend proprietary.
+Zstandard 1.5.7 dual-license BSD-3-Clause atau GPL-2.0-only; build memilih
+opsi BSD-3-Clause. Build awal mengompilasi seluruh target tetapi gagal link
+karena vcpkg `/MT` bertentangan dengan target COLMAP `/MD` (LNK2038
+RuntimeLibrary). Percobaan `x64-windows-static-md` tertahan saat fetch metadata
+registry tanpa aktivitas CPU atau koneksi; dihentikan sebelum package berubah.
+Konfigurasi minimum menyetel `CMAKE_POLICY_DEFAULT_CMP0091=NEW` dan
+`CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>` agar target
+CMake memakai `/MT` yang cocok dengan triplet. Build ulang tetap memakai
+arsitektur `61;86`; belum ada klaim build, runtime, atau package PASS sampai
+kompilasi dan audit import PE dari binary tersebut selesai.
+
+### Review internal (2026-10-24)
+
+Dua temuan Major telah diperbaiki dan diverifikasi ulang: event `completed`
+ditunda sampai validasi keluaran tahap lulus, dan README kini mengungkap
+dependency runtime GPL/LGPL-family pada build Windows yang tersedia. Reviewer
+tidak menemukan Critical/Major tersisa. Catatan Minor: harness uji membaca
+stdout penuh sebelum stderr; fake executable saat ini menghasilkan output
+kecil, jadi tidak memblokir. Prasyarat PowerShell 5.1/7 telah ditambahkan ke
+dokumentasi runtime.
+
+### F2/F4 final runtime follow-up (2026-10-24, historical trial)
+
+Profile permissive-only kini dibangun dari source checkout ini: build Windows
+Release selesai 396/396 target; setelah optional ONNX dimatikan secara
+eksplisit, rebuild selesai 222/222 target. CMake memakai `/MT`, vcpkg
+`x64-windows-static`, dan menghasilkan kode CUDA untuk `sm_61` serta `sm_86`
+(flag `compute_61`/`sm_61` dan `compute_86`/`sm_86` terverifikasi pada objek
+build). Recursive import audit executable menemukan satu DLL app-local,
+`cudart64_12.dll`; paket membawa DLL itu dan lisensi CUDA, 110 notice vcpkg,
+source header Eigen MPL-2.0, serta notice proyek. `VCOMP140.DLL` disediakan
+Microsoft Visual C++ 2015–2022 x64 Redistributable; Windows API dan driver
+NVIDIA tetap prasyarat sistem. Tidak ada DLL GPL/LGPL-family di closure paket.
+GCC Runtime Library Exception 3.1 dicatat untuk artefak build lama, tetapi
+kebijakan permissive-only proyek tetap mengecualikannya. Packager diuji di
+PowerShell 5.1; smoke `colmap version` dari paket berhasil dengan CUDA Toolkit
+bin dikeluarkan dari `PATH`.
+
+Trial paket awal melalui Windows PowerShell 5.1: 117/117 foto terdaftar,
+234 depth maps, 3.522.577 titik di log/JSON/PLY, status `success`, input
+unchanged, tanpa OOM, total 874,099 dtk, dan peak VRAM 203 MB. Mean
+reprojection error 0,829178 px. Hasil ini **historis dan superseded**: audit
+setelahnya menemukan cache FetchContent lama menunjuk ke source dependency
+yang tidak terverifikasi terhadap URL hash. Hasil ini bukan bukti QA untuk
+runtime pinned final.
+
+Lima skrip PowerShell yang berubah lulus `tools/parsecheck.ps1` di Windows
+PowerShell 5.1 dan 7; kontrak runner fake-COLMAP juga lulus di kedua versi.
+Build `sm_86` terbukti sampai kompilasi objek saja; runtime RTX 3050 menunggu
+perangkat fisik.
+
+### F2/F4 revalidated from pinned sources (2026-10-24)
+
+Configure final menghapus `FETCHCONTENT_SOURCE_DIR_POSELIB` dan
+`FETCHCONTENT_SOURCE_DIR_FAISS` dari cache sebelum generate. Source PoseLib
+dan Faiss dipopulasi dari URL yang memiliki `URL_HASH` SHA-256. Hash yang
+diverifikasi: PoseLib `ee46322581c7901fe24e91434eeec27163f820d481cba5faa43d37651fabc8e8`,
+Faiss `4b1ae7e7a0a46385b4084f0e3945623a15fcf99d793bf44d82aae8e24f11e5f5`.
+Patch PoseLib MSVC/Eigen 5 hanya meneruskan ekspresi Eigen ke overload
+akumulator yang sudah ada; tidak mengubah perhitungan. Build Release penuh
+selesai 208/208 action dengan CUDA `sm_61;sm_86`; Faiss dan `feature/index.cc`
+tidak diubah.
+
+Packager kini gagal tertutup untuk DLL yang tidak ada dalam map lisensi
+eksplisit. Closure terukur berisi satu DLL app-local, `cudart64_12.dll`
+(NVIDIA CUDA Toolkit license disertakan), dan komponen Windows/VC Runtime yang
+tidak dibundel. Package menyertakan 110 notice vcpkg, header source Eigen
+MPL-2.0, license proyek, notice third-party, dan license CUDA. Smoke
+`colmap version` pada package yang diaudit berhasil dengan CUDA Toolkit dan
+source checkout dikeluarkan dari `PATH`.
+
+QA E2E final dari package yang sama: 117/117 foto, 3.515.801 titik yang cocok
+di JSON/log/header `dense/fused.ply`, `status=success`, exit code 0, input
+unchanged, 234 depth maps, tanpa OOM, peak VRAM 203 MB dari 621 sampel.
+Binary PLY little-endian tervalidasi dengan 27 byte per vertex, header 248
+byte, dan koordinat XYZ sampel finite/nonzero. Mean reprojection error
+0,829217 px (baseline 0,828526 px; delta +0,000691 px). Total 877,795 dtk
+(14m 37,795 dtk), +18,233 dtk (+2,12%) dari baseline 859,562 dtk; selisih
+titik −5.354 (−0,152%). Tidak ada klaim akurasi survey-grade.
+
+Timing final per tahap: snapshot input 2,788 dtk; feature extraction 274,334;
+sequential matching 287,601; mapper 94,168; model analyzer 0,271;
+undistortion 67,886; PatchMatch 95,608; fusion 49,648; integrity check
+3,118. Dua E2E pinned sebelumnya berdurasi 1.109,564 dtk dan 1.243,991 dtk
+(matching 467,302 dan 485,278 dtk), tetapi perlambatan tersebut tidak
+berulang pada matcher-only dari database salinan (274,408 dtk) maupun E2E
+final (287,601 dtk matching; 877,795 dtk total). Penyebab variasi dua run
+awal belum terukur dan dicatat tanpa atribusi. Final run berada dalam 2,12%
+dari baseline; hasil lama tetap tersimpan sebagai observasi, bukan
+disembunyikan.
+
+Review independen menemukan Major tentang source override FetchContent dan
+missing-input summary; keduanya diperbaiki dan diuji. Review berikutnya
+menemukan Major pada allowlist DLL packager; map eksplisit ditambahkan,
+package final berhasil dibuat, dan re-review tidak menemukan Critical/Major.
+Security regression suite setelah perubahan final lulus 57/57. Gitleaks 8.30.1
+dan artifact guard pada staged diff final lulus; scanner memeriksa sekitar
+57,22 KB perubahan dan tidak menemukan leak atau artifact terlarang.
+Runtime RTX 3050 belum diuji pada hardware fisik; bukti saat ini sampai
+kompilasi `sm_86`.
