@@ -1,0 +1,23 @@
+--- a/PoseLib/robust/optim/jacobian_accumulator.h
++++ b/PoseLib/robust/optim/jacobian_accumulator.h
+@@ -95,7 +95,19 @@
+         Jtr += jac.transpose() * (weight * res);
+         residual_count++;
+     }
+-
++
++    // Explicitly forward Eigen expressions to the fixed-size overloads.
++    // MSVC cannot deduce these dimensions for Eigen 5 matrix operands.
++    template <typename ResDerived>
++    inline void add_residual(const Eigen::MatrixBase<ResDerived> &res, const double w = 1.0) {
++        add_residual<ResDerived::RowsAtCompileTime>(res.derived(), w);
++    }
++    template <typename ResDerived, typename JacDerived>
++    inline void add_jacobian(const Eigen::MatrixBase<ResDerived> &res,
++                             const Eigen::MatrixBase<JacDerived> &jac, const double w = 1.0) {
++        add_jacobian<ResDerived::RowsAtCompileTime, JacDerived::ColsAtCompileTime>(res.derived(), jac.derived(), w);
++    }
++
+     template <int ResidualDim>
+     inline void add_jacobian(const Eigen::Matrix<double, ResidualDim, 1> &res, const Eigen::MatrixXd &jac,
+                              const double w = 1.0) {

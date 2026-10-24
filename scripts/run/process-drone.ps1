@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$ImagesPath,
-  [Parameter(Mandatory = $true)][string]$OutputDir
+  [Parameter(Mandatory = $true)][string]$OutputDir,
+  [string]$ColmapExe,
+  [ValidateRange(0, 2147483647)][int]$GpuIndex = 0
 )
 
 $ErrorActionPreference = 'Stop'
+$requestedColmapExe = $ColmapExe
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $processLogPath = $null
 $processLogWriter = $null
@@ -17,7 +20,9 @@ $runTimer = [Diagnostics.Stopwatch]::StartNew()
 $stageTimings = [ordered]@{}
 $registeredLogCount = $null
 $fusedLogPointCount = $null
+$pendingStage = $null
 $summary = [ordered]@{
+  schemaVersion = 1
   status = 'failed'
   inputPhotoCount = $null
   registeredPhotoCount = $null
@@ -32,6 +37,7 @@ $summary = [ordered]@{
   completedAtUtc = $null
   error = $null
   exitCode = 1
+  fusedCloudPath = 'dense/fused.ply'
 }
 
 function Test-PathWithin([string]$Path, [string]$ParentPath) {
@@ -64,32 +70,78 @@ function Write-RunLog([string]$Message) {
   }
 }
 
+function Write-StageEvent {
+  param(
+    [string]$Name,
+    [string]$Status,
+    [object]$ExitCode = $null,
+    [object]$DurationSeconds = $null
+  )
+  $event = [ordered]@{
+    schemaVersion = 1
+    stage = $Name
+    status = $Status
+    timestampUtc = [DateTime]::UtcNow.ToString('o')
+  }
+  if ($null -ne $ExitCode) { $event.exitCode = $ExitCode }
+  if ($null -ne $DurationSeconds) { $event.durationSeconds = $DurationSeconds }
+  Write-Host ('MMSP_STAGE_EVENT ' + ($event | ConvertTo-Json -Compress -Depth 3))
+}
+
+function Complete-ColmapStage([string]$Name) {
+  $stage = $script:pendingStage
+  if ($null -eq $stage -or $stage.Name -ne $Name) { throw "Cannot complete COLMAP stage '$Name' without a matching successful invocation." }
+  Write-StageEvent $Name 'completed' $stage.ExitCode $stage.DurationSeconds
+  $script:pendingStage = $null
+}
+
 function Invoke-ColmapStage([string]$Name, [string[]]$Arguments) {
   $timer = [Diagnostics.Stopwatch]::StartNew()
   $allArguments = @($Name, '--log_target', 'stderr', '--log_color', '0') + $Arguments
+  $nativeExitCode = $null
   Write-RunLog ("START {0}: colmap {1}" -f $Name, ($allArguments -join ' '))
+  Write-StageEvent $Name 'started'
   try {
-    & $script:colmapExe @allArguments 2>&1 | ForEach-Object {
-      $line = [string]$_
-      $script:processLogWriter.WriteLine($line)
-      if ($Name -eq 'model_analyzer' -and $line -match 'Registered images:\s*(\d+)') {
-        $script:registeredLogCount = [int]$Matches[1]
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      # Windows PowerShell 5.1 surfaces native stderr writes as ErrorRecords.
+      # COLMAP writes normal progress logs to stderr, so they must not abort a
+      # zero-exit stage while ErrorActionPreference is Stop for script errors.
+      $ErrorActionPreference = 'Continue'
+      & $script:colmapExe @allArguments 2>&1 | ForEach-Object {
+        $line = [string]$_
+        $script:processLogWriter.WriteLine($line)
+        if ($Name -eq 'model_analyzer' -and $line -match 'Registered images:\s*(\d+)') {
+          $script:registeredLogCount = [int]$Matches[1]
+        }
+        if ($Name -eq 'stereo_fusion' -and $line -match 'Number of fused points:\s*([\d,]+)') {
+          $script:fusedLogPointCount = [long](($Matches[1] -replace ',', ''))
+        }
+        Write-Host $line
       }
-      if ($Name -eq 'stereo_fusion' -and $line -match 'Number of fused points:\s*([\d,]+)') {
-        $script:fusedLogPointCount = [long](($Matches[1] -replace ',', ''))
-      }
-      Write-Host $line
+      $nativeExitCode = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousErrorActionPreference
     }
-    $nativeExitCode = $LASTEXITCODE
-  } finally {
+    if ($nativeExitCode -ne 0) { throw "COLMAP returned exit code $nativeExitCode." }
+  } catch {
     $timer.Stop()
     if ($script:processLogWriter) { $script:processLogWriter.Flush() }
     $script:stageTimings[$Name] = [Math]::Round($timer.Elapsed.TotalSeconds, 3)
     Write-RunLog ("END {0}: {1:F3}s" -f $Name, $timer.Elapsed.TotalSeconds)
+    $script:scriptExitCode = if ($null -ne $nativeExitCode -and $nativeExitCode -ne 0) { $nativeExitCode } else { 1 }
+    $script:pendingStage = $null
+    Write-StageEvent $Name 'failed' $script:scriptExitCode $script:stageTimings[$Name]
+    throw "$Name failed with COLMAP exit code $script:scriptExitCode. See process-drone.log."
   }
-  if ($nativeExitCode -ne 0) {
-    $script:scriptExitCode = $nativeExitCode
-    throw "$Name failed with COLMAP exit code $nativeExitCode. See process-drone.log."
+  $timer.Stop()
+  if ($script:processLogWriter) { $script:processLogWriter.Flush() }
+  $script:stageTimings[$Name] = [Math]::Round($timer.Elapsed.TotalSeconds, 3)
+  Write-RunLog ("END {0}: {1:F3}s" -f $Name, $timer.Elapsed.TotalSeconds)
+  $script:pendingStage = [pscustomobject]@{
+    Name = $Name
+    ExitCode = $nativeExitCode
+    DurationSeconds = $script:stageTimings[$Name]
   }
 }
 
@@ -162,10 +214,8 @@ try {
   $outputFullPath = [IO.Path]::GetFullPath($OutputDir)
   Assert-NoReparsePointInPath $imagesFullPath 'ImagesPath'
   Assert-NoReparsePointInPath $outputFullPath 'OutputDir'
-  if (Test-PathWithin $imagesFullPath $repoRoot) { throw 'ImagesPath must be outside the Git repository.' }
   if (Test-PathWithin $outputFullPath $repoRoot) { throw 'OutputDir must be outside the Git repository.' }
   if (Test-PathWithin $outputFullPath $imagesFullPath) { throw 'OutputDir must not be the image folder or a child of it.' }
-  if (-not (Test-Path -LiteralPath $imagesFullPath -PathType Container)) { throw 'ImagesPath does not exist or is not a folder.' }
 
   if (Test-Path -LiteralPath $outputFullPath) {
     if (@(Get-ChildItem -LiteralPath $outputFullPath -Force).Count -gt 0) {
@@ -179,6 +229,8 @@ try {
   $vramSamplesPath = Join-Path $outputFullPath 'gpu-memory-mb.csv'
   $processLogWriter = [IO.StreamWriter]::new($processLogPath, $false, [Text.UTF8Encoding]::new($false))
 
+  if (Test-PathWithin $imagesFullPath $repoRoot) { throw 'ImagesPath must be outside the Git repository.' }
+  if (-not (Test-Path -LiteralPath $imagesFullPath -PathType Container)) { throw 'ImagesPath does not exist or is not a folder.' }
   $inputEntries = @(Get-ChildItem -LiteralPath $imagesFullPath -Force -Recurse)
   $linkedEntry = $inputEntries | Where-Object { ([int]$_.Attributes -band [int][IO.FileAttributes]::ReparsePoint) -ne 0 } | Select-Object -First 1
   if ($linkedEntry) { throw "ImagesPath contains a symbolic link or junction: $($linkedEntry.FullName)" }
@@ -206,9 +258,13 @@ try {
   [IO.File]::WriteAllLines($imageListPath, [string[]]$imageList, [Text.UTF8Encoding]::new($false))
   Write-RunLog "Wrote COLMAP image list with $($imageList.Count) JPG/JPEG files."
 
-  . (Join-Path $PSScriptRoot '../env.ps1')
-  $colmapExe = $ColmapExe
-  if (-not (Test-Path -LiteralPath $colmapExe -PathType Leaf)) { throw 'Configured COLMAP executable was not found.' }
+  if ([string]::IsNullOrWhiteSpace($requestedColmapExe)) {
+    . (Join-Path $PSScriptRoot '../env.ps1')
+    $colmapExe = $ColmapExe
+  } else {
+    $colmapExe = $requestedColmapExe
+  }
+  if (-not (Test-Path -LiteralPath $colmapExe -PathType Leaf)) { throw 'Selected COLMAP executable was not found.' }
   Write-RunLog "COLMAP executable: $colmapExe"
 
   $databasePath = Join-Path $outputFullPath 'database.db'
@@ -220,11 +276,11 @@ try {
   if ($gpu) {
     try {
       $nvidiaSmiPath = $gpu.Source
-      $samplerJob = Start-Job -ArgumentList $nvidiaSmiPath, $vramSamplesPath -ScriptBlock {
-        param($NvidiaSmiPath, $SamplePath)
+      $samplerJob = Start-Job -ArgumentList $nvidiaSmiPath, $vramSamplesPath, $GpuIndex -ScriptBlock {
+        param($NvidiaSmiPath, $SamplePath, $SampleGpuIndex)
         while ($true) {
           try {
-            $sample = & $NvidiaSmiPath --query-gpu=memory.used --id=0 --format=csv,noheader,nounits 2>$null
+            $sample = & $NvidiaSmiPath --query-gpu=memory.used "--id=$SampleGpuIndex" --format=csv,noheader,nounits 2>$null
             if ($LASTEXITCODE -eq 0 -and $sample -match '^\s*(\d+)') {
               [IO.File]::AppendAllText($SamplePath, $Matches[1] + [Environment]::NewLine)
             }
@@ -232,7 +288,7 @@ try {
           Start-Sleep -Seconds 1
         }
       }
-      Write-RunLog 'Started one-second GPU 0 memory sampler.'
+      Write-RunLog "Started one-second GPU $GpuIndex memory sampler."
     } catch {
       $samplerJob = $null
       Write-RunLog "GPU memory sampling unavailable: $($_.Exception.Message)"
@@ -243,9 +299,11 @@ try {
     '--image_list_path', $imageListPath,
     '--ImageReader.single_camera', '1', '--FeatureExtraction.use_gpu', '0', '--FeatureExtraction.max_image_size', '2048',
     '--SiftExtraction.max_num_features', '5000', '--FeatureExtraction.num_threads', '-1'))
+  Complete-ColmapStage 'feature_extractor'
 
   $null = Invoke-ColmapStage 'sequential_matcher' (@('--database_path', $databasePath, '--SequentialMatching.overlap', '10',
     '--SequentialMatching.quadratic_overlap', '1', '--FeatureMatching.use_gpu', '0', '--FeatureMatching.num_threads', '-1'))
+  Complete-ColmapStage 'sequential_matcher'
 
   $null = New-Item -ItemType Directory -Path $sparsePath -Force
   $null = Invoke-ColmapStage 'mapper' @('--database_path', $databasePath, '--image_path', $imagesFullPath, '--output_path', $sparsePath,
@@ -253,12 +311,14 @@ try {
   if (-not (Test-Path -LiteralPath (Join-Path $sparseModelPath 'cameras.bin') -PathType Leaf)) {
     throw 'Sparse mapper did not produce a model in sparse/0.'
   }
+  Complete-ColmapStage 'mapper'
 
   $registeredLogCount = $null
   $null = Invoke-ColmapStage 'model_analyzer' @('--path', $sparseModelPath)
   if ($null -eq $registeredLogCount) { throw 'Could not read the registered photo count from model_analyzer.' }
   $summary.registeredPhotoCount = $registeredLogCount
   if ($summary.registeredPhotoCount -lt 2) { throw 'Sparse reconstruction registered fewer than two photos.' }
+  Complete-ColmapStage 'model_analyzer'
 
   $null = Invoke-ColmapStage 'image_undistorter' (@('--image_path', $imagesFullPath, '--input_path', $sparseModelPath,
     '--output_path', $densePath, '--output_type', 'COLMAP', '--max_image_size', '700'))
@@ -269,9 +329,10 @@ try {
   if ($autoMatches.Count -eq 0) { throw 'PatchMatch config has no automatic source-view entries.' }
   $patchConfig = [regex]::Replace($patchConfig, '(?m)^(__auto__,\s*)\d+', '${1}8')
   [IO.File]::WriteAllText($patchConfigPath, $patchConfig, [Text.UTF8Encoding]::new($false))
+  Complete-ColmapStage 'image_undistorter'
 
   $null = Invoke-ColmapStage 'patch_match_stereo' (@('--workspace_path', $densePath, '--workspace_format', 'COLMAP',
-    '--PatchMatchStereo.max_image_size', '700', '--PatchMatchStereo.gpu_index', '0', '--PatchMatchStereo.window_radius', '3',
+    '--PatchMatchStereo.max_image_size', '700', '--PatchMatchStereo.gpu_index', "$GpuIndex", '--PatchMatchStereo.window_radius', '3',
     '--PatchMatchStereo.window_step', '2', '--PatchMatchStereo.num_samples', '10', '--PatchMatchStereo.num_iterations', '1',
     '--PatchMatchStereo.min_triangulation_angle', '1.0', '--PatchMatchStereo.max_triangulation_angle', '65.0',
     '--PatchMatchStereo.geom_consistency', '1', '--PatchMatchStereo.geom_consistency_regularizer', '0.3',
@@ -282,6 +343,7 @@ try {
     '--PatchMatchStereo.cache_size', '4'))
   $summary.depthMapCount = @(Get-ChildItem -LiteralPath (Join-Path $densePath 'stereo/depth_maps') -File -Filter '*.bin' -ErrorAction SilentlyContinue).Count
   if ($summary.depthMapCount -eq 0) { throw 'PatchMatch completed without writing depth maps.' }
+  Complete-ColmapStage 'patch_match_stereo'
 
   $null = Invoke-ColmapStage 'stereo_fusion' (@('--workspace_path', $densePath, '--workspace_format', 'COLMAP', '--input_type', 'geometric',
     '--output_path', $fusedPath, '--StereoFusion.max_image_size', '700', '--StereoFusion.min_num_pixels', '3',
@@ -295,6 +357,7 @@ try {
     throw 'Fusion log point count does not match the readable PLY vertex count.'
   }
   $summary.fusedPointCount = $plyInfo.VertexCount
+  Complete-ColmapStage 'stereo_fusion'
 
   $integrityTimer = [Diagnostics.Stopwatch]::StartNew()
   $imagesAfter = @(Get-ChildItem -LiteralPath $imagesFullPath -File -Recurse | Where-Object { $_.Extension -match '^\.(jpg|jpeg)$' })
@@ -321,6 +384,10 @@ try {
   $summary.status = 'failed'
   $summary.error = $_.Exception.Message
   if ($scriptExitCode -eq 0) { $scriptExitCode = 1 }
+  if ($null -ne $script:pendingStage) {
+    Write-StageEvent $script:pendingStage.Name 'failed' $scriptExitCode $script:pendingStage.DurationSeconds
+    $script:pendingStage = $null
+  }
   Write-RunLog "FAILED: $($summary.error)"
 } finally {
   if ($samplerJob) {

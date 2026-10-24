@@ -36,9 +36,11 @@ endif()
 
 if(FETCH_POSELIB)
     include(FetchContent)
+    find_package(Git REQUIRED)
     FetchContent_Declare(poselib
         URL https://github.com/PoseLib/PoseLib/archive/1bb8881f08e68f0b3d9b2ecc411fc15e7766ef1b.zip
         URL_HASH SHA256=ee46322581c7901fe24e91434eeec27163f820d481cba5faa43d37651fabc8e8
+        PATCH_COMMAND "${GIT_EXECUTABLE}" apply "${CMAKE_SOURCE_DIR}/cmake/patches/poselib-eigen5-msvc.patch"
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")

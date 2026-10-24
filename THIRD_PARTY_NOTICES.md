@@ -51,6 +51,11 @@ Applies to (verified from in-tree license files / declarations):
 - PoseLib — Copyright (c) 2020, Viktor Larsson.
 - glog, gflags — BSD-3-Clause (Google and contributors).
 - OpenBLAS / LAPACK reference — BSD-3-Clause.
+- CLAPACK 3.2.1 (f2c-translated LAPACK) — Copyright (c) 1992-2008
+  University of Tennessee; BSD-3-Clause terms reproduced above from its
+  [`COPYING` file](https://www.netlib.org/clapack/clapack-3.2.1-CMAKE/COPYING).
+  OpenBLAS license: [v0.3.33 `LICENSE`](https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.33/LICENSE).
+  The static Windows profile uses CLAPACK.
 
 ## BSD 2-Clause (VLFeat, CPU SIFT)
 
@@ -135,6 +140,9 @@ Applies to (copyright lines verified in-tree):
 - OpenEXR/TIFF/PNG/zlib/bzip2/LZMA/zstd and similar image/codec
   helpers pulled in via vcpkg/OpenImageIO — all permissive
  (BSD/MIT/Zlib-style); full texts ship in their vcpkg ports.
+- Zstandard 1.5.7 declares `BSD-3-Clause OR GPL-2.0-only`; MMSP uses the
+  BSD-3-Clause option. Its complete vcpkg copyright file is included as
+  `licenses/vcpkg/zstd.txt` in the runtime package.
 
 ## Toolchain (not distributed as source)
 
