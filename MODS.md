@@ -832,3 +832,162 @@ sebelumnya mencatat local/global BA 81,1 detik dalam mapper 99,6 detik dan E2E
 932,2 detik. Angka itu bukan hasil pengujian GPU mapping. CPU
 SIFT/matching/mapping tetap backend produksi; tidak ada CUDA matching atau
 mapping yang aktif.
+
+### Sparse optimization gate — 2026-10-25 — NO-GO
+
+**Verdict:** no production optimization passed the required correctness and
+quality gates. All temporary instrumentation and candidate source changes were
+removed. This entry is documentation-only; no new algorithm, dependency, build
+option, or runtime path is introduced.
+
+#### Frozen baseline
+
+- Primary input: 117 JPEG images; aggregate path/content manifest SHA-256
+  `1dc1353aa201e287b7508d180b116bc2685e0c3dc96c88d66153abf4b58af0cf`.
+- Host: Intel Core i5-8250U (4C/8T), GeForce MX150 2 GB (`sm_61`), driver
+  582.28, CUDA 12.4.131, Balanced power plan. The baseline executable was
+  COLMAP 4.2.1 Release with CUDA, SHA-256
+  `6f61944ae6cd4deaab321f05305768765e23cd2d7f7fabde75bfc6a41dd2a3d7`.
+- One full CPU-SIFT baseline completed 117/117 registrations and produced
+  3,524,916 fused points. E2E wall time was 923.449 s; fused PLY SHA-256 was
+  `655cc604f5945e3c9c91b0bc8d6adea7286d0b75fb12e385d27b89fe420b422f`.
+- E2E stages (seconds): extraction 282.742; sequential matching 305.270;
+  mapper 103.803; model analysis 0.285; undistortion 71.403; PatchMatch
+  101.885; fusion 51.745; integrity check 3.176; input snapshot 2.558.
+- Fresh primary cloud vs the OpenMVS reference measured coverage 0.919890,
+  fill Jaccard 0.083167, C2C median 0.136015 m / p90 0.302046 m, and ours-to-
+  reference outlier ratio 0.08698 (reference 0.02908). A prior primary cloud
+  measured coverage 0.997319 and C2C median 0.041322 m / p90 0.100172 m. That
+  run-to-run difference is unexplained; the prior cloud is not substituted as
+  the baseline, and no absolute survey-accuracy claim is made. The secondary
+  51-image reference comparison reused an existing cloud (coverage 0.997895,
+  C2C median 0.042330 m / p90 0.096744 m); no secondary optimization run was
+  performed.
+- VRAM peak was sampled at 203 MiB over 582 one-second samples. This is a
+  sampled maximum, not an allocator peak. Inputs were re-hashed after the full
+  run and remained unchanged.
+
+#### Profile and candidate screens
+
+Diagnostic profiling used an isolated CPU-only Release build with the same
+feature-matching code, OpenMP enabled, GPU matching disabled, and no production
+binary rebuild. Profile durations below are accumulated wall time across
+worker calls; nested and concurrent spans overlap and must not be summed as
+exclusive process time.
+
+| Screen | Wall / process CPU | Key result | Decision |
+| --- | ---: | --- | --- |
+| 8 matcher + 8 verifier workers, existing `nprobe=8` | 267.605 s / 1,109.094 s | 692 scheduled pairs; 245,138 raw matches; 316 verified pairs; 235,210 inliers; sampled working set 436.5 MiB | Baseline stage screen |
+| 4 matcher + 4 verifier workers | 320.281 s / 910.2 s | 18.5% slower wall time than the 270.320 s uninstrumented 8-worker screen; inlier count 235,158 | Reject; fewer threads reduce memory slightly but not elapsed time |
+| Faiss IVF-SQ `nprobe=4` | 221.199 s / 849.766 s | 17.3% faster wall time than the instrumented `nprobe=8` run; raw matches 233,732; verified pairs 316; inliers 223,350 | Reject on quality; no full E2E run |
+
+The `nprobe=4` comparison used independent clones of the same frozen
+117-image extraction-only database and the same sequential matcher options;
+both runs scheduled 692 pairs.
+Exact inlier-correspondence intersection retained 222,002 of 235,210 baseline
+inliers (94.3846%, below the predeclared 99% minimum); one baseline verified
+pair was lost and one different pair became verified. Raw match count fell by
+4.65%. The approximate-search speed gain therefore fails correctness/quality
+acceptance and is not retained. No three-run paired E2E benchmark was started
+because this stage gate failed.
+
+The `nprobe=8` profile measured 117 index builds for 117 images, 1,256 index
+cache hits, and 1,384 index searches. Accumulated index build/search times
+were 271.965 / 793.910 s. Descriptor conversion took 3.146 s; ratio/cross-check
+0.137 s; descriptor and keypoint database reads took 0.240 / 0.135 s across
+117 reads each; geometry verification took 44.459 s across 435 calls; match
+and geometry writes together took 0.181 s. This points to Faiss search as the
+largest measured matching cost, while the existing index lifecycle and
+descriptor/keypoint caches already avoid repeated builds and most database
+reads. The `nprobe=4` screen reduced accumulated search time to 545.245 s but
+failed the inlier-retention gate above.
+
+A mapper-only diagnostic used a clone of the completed baseline matching
+database, the same 117-image list, and default mapper options; the source
+database SHA-256 remained
+`50accbe390d63ee425c3c46074e8d0ec233aa9aff296f034a8179a5506eb1e02` before
+and after. It completed in 84.495 s wall / 195.625 s process CPU with a 317.6
+MiB sampled working set. This stage-only timing is not directly comparable to
+the 103.803 s mapper stage inside the full E2E run.
+
+Mapper spans measured 230 local BA solves / 26.236 s and 36 global BA solves /
+32.607 s; all 266 used Ceres, with 234 `CONVERGENCE`, 32 `NO_CONVERGENCE`, and
+zero failure terminations. Other spans: local refinement 32.408 s; global
+refinement 38.369 s; point filtering 1.198 s; frame filtering 0.00026 s;
+track completion 0.944 s; track merging 0.731 s; color extraction 10.449 s;
+database cache load 0.131 s; model write 0.223 s. These mapper spans are
+inclusive where indicated by their names. Even eliminating the measured
+58.843 s of all BA solve time would save at most 6.37% of the 923.449 s E2E
+baseline, below the 10% E2E acceptance target. No existing Ceres setting was
+changed.
+
+#### Candidate disposition and validation limits
+
+- **T2 Faiss:** tested only one smaller supported `nprobe`; reject because
+  exact inlier correspondence retention was 94.3846%. No silent default change.
+- **T3 worker/cache/DB overhead:** skip further changes; four workers were
+  slower, per-image indexes were built once, and existing feature caches
+  limited descriptor/keypoint DB reads to 117 each. Geometry work had no
+  identified semantics-preserving shortcut.
+- **T4 pair selection:** skipped. The count of rejected/degenerate rows is
+  diagnostic only and does not prove those image pairs are safe to remove; no
+  alternate pair set was tested.
+- **T5 mapper/BA:** skipped. The measured BA solve budget is below the E2E
+  performance target even under an impossible 100% elimination assumption.
+- All profiling hooks, the temporary `nprobe=4` edit, and temporary scripts
+  were removed. No profile logs, databases, binaries, image names, GPS data,
+  or local filesystem paths are tracked.
+- Temporary CPU-only Release profiling build and matcher/mapper integration
+  screens completed successfully. `scripts/run/test-process-drone.ps1` passed
+  under Windows PowerShell 5.1 and PowerShell 7; the relevant scripts passed
+  `tools/parsecheck.ps1` with `errors=0` in both shells. Pinned Gitleaks 8.30.1
+  passed the working-tree and committed-tree scans, and
+  `security/scan-tests.sh` completed with 57 passed / 0 failed. Unit tests/CTest
+  were not available in the diagnostic build (`TESTS_ENABLED=OFF`; GTest absent
+  from installed test dependencies), and CTest reported no tests, so unit-test
+  status is **BLOCKED**, not passed. The existing project manifest pins a
+  different vcpkg baseline from the available local checkout; that checkout
+  and its user data were not modified.
+- No new dependency or third-party code was added. No OpenMVS code was copied
+  or linked into the product. GPU SIFT remains disabled. The RTX 3050 `sm_86`
+  target was not physically tested.
+
+#### Review record, source references, and license disposition
+
+- Source references cross-checked: `scripts/run/process-drone.ps1` for the
+  frozen pipeline options; `scripts/measure/run-sparse-sift-117.ps1` for the
+  benchmark harness; `colmap/src/colmap/feature/sift.cc` for CPU SIFT and
+  matching; `colmap/src/colmap/sfm/incremental_mapper.cc` and
+  `colmap/src/colmap/estimators/bundle_adjustment.cc` for mapper/BA behavior;
+  `THIRD_PARTY_NOTICES.md` and `colmap/vcpkg.json` for license declarations.
+  Faiss `nprobe` semantics were checked against its official FAQ via Context7:
+  <https://github.com/facebookresearch/faiss/wiki/FAQ>.
+- GitNexus MCP was used for change detection. Its repository index was stale
+  for source-symbol queries; direct source inspection supplemented it. The
+  final documentation-only diff reports one changed file, no changed symbols,
+  and low risk. Context7 MCP resolved `/facebookresearch/faiss` and returned
+  the official IVF search speed/accuracy explanation. The superpowers
+  planning, worktree, TDD, execution, verification, and review workflow and the
+  ponytail skill were used.
+- Independent read-only review found no material benchmark-gate or arithmetic
+  issue; its wording feedback was applied. The implementation diff is this
+  evidence-only `MODS.md` section; no sparse source change remains.
+- License matrix for components involved in the recorded baseline/evaluation:
+
+  | Component | Evidence role | License / disposition |
+  | --- | --- | --- |
+  | MMSP / COLMAP | Sparse pipeline and this report | Repository `LICENSE` / Apache-2.0 for MMSP work; COLMAP BSD-3-Clause notices retained |
+  | VLFeat | Existing CPU SIFT | BSD-2-Clause attribution retained in `THIRD_PARTY_NOTICES.md` |
+  | Faiss | Existing CPU descriptor search | MIT attribution retained; no Faiss code copied or changed |
+  | Ceres | Existing mapper bundle adjustment | BSD-3-Clause attribution retained; no Ceres code copied or changed |
+  | CUDA toolkit | Baseline build/runtime | Applicable NVIDIA CUDA EULA; no toolkit code added to this change |
+  | OpenMVS | External reference cloud only | No code copied, linked, or added |
+
+- E2E baseline is one run at 923.449 s, not a repeated median series. No
+  candidate E2E median was measured because the only faster matching screen
+  failed the inlier gate. Therefore no ≥10% E2E gain is claimed or established.
+
+The only remaining optimization evidence is a faster Faiss search setting that
+fails the predeclared inlier gate. The correct disposition is **NO-GO** until a
+semantics-preserving existing-component change demonstrates the required
+paired E2E gain and quality on both benchmark sites.
