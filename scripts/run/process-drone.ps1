@@ -3,7 +3,8 @@ param(
   [Parameter(Mandatory = $true)][string]$ImagesPath,
   [Parameter(Mandatory = $true)][string]$OutputDir,
   [string]$ColmapExe,
-  [ValidateRange(0, 2147483647)][int]$GpuIndex = 0
+  [ValidateRange(0, 2147483647)][int]$GpuIndex = 0,
+  [switch]$NativeGpuSift
 )
 
 $ErrorActionPreference = 'Stop'
@@ -295,10 +296,12 @@ try {
     }
   }
 
-  $null = Invoke-ColmapStage 'feature_extractor' (@('--database_path', $databasePath, '--image_path', $imagesFullPath,
+  $featureExtractionArguments = @('--database_path', $databasePath, '--image_path', $imagesFullPath,
     '--image_list_path', $imageListPath,
     '--ImageReader.single_camera', '1', '--FeatureExtraction.use_gpu', '0', '--FeatureExtraction.max_image_size', '2048',
-    '--SiftExtraction.max_num_features', '5000', '--FeatureExtraction.num_threads', '-1'))
+    '--SiftExtraction.max_num_features', '5000', '--FeatureExtraction.num_threads', '-1')
+  if ($NativeGpuSift) { $featureExtractionArguments += @('--SiftExtraction.use_gpu_native', '1') }
+  $null = Invoke-ColmapStage 'feature_extractor' $featureExtractionArguments
   Complete-ColmapStage 'feature_extractor'
 
   $null = Invoke-ColmapStage 'sequential_matcher' (@('--database_path', $databasePath, '--SequentialMatching.overlap', '10',

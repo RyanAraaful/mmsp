@@ -688,3 +688,86 @@ dan artifact guard pada staged diff final lulus; scanner memeriksa sekitar
 57,22 KB perubahan dan tidak menemukan leak atau artifact terlarang.
 Runtime RTX 3050 belum diuji pada hardware fisik; bukti saat ini sampai
 kompilasi `sm_86`.
+
+### Eksperimen sparse SIFT CUDA opt-in (2026-10-24, MX150 sm_61)
+
+Eksperimen 117 foto membandingkan baseline CPU D1 dengan extractor CUDA
+native COLMAP yang sudah ada; matcher, pair selection sequential
+(`overlap=10`, quadratic overlap 1), mapper, geometric verification, dan
+dense pipeline tetap sama. Kedua run memakai executable SHA-256
+`72C0037AA752590B6324AB560889D9023DFABE779E869FB8BCEBE39E2C8C0A29`, path
+dataset dan daftar input 117 foto yang sama. Perbedaan ekstraksi hanya
+`SiftExtraction.use_gpu_native=1`; COLMAP GPU mode tetap mati dan matcher
+tetap CPU. Database berisi 903.715 keypoint/descriptor rows pada run CUDA
+dan 903.709 pada CPU.
+
+| Metrik | CPU D1 | Native CUDA extractor |
+|---|---:|---:|
+| Extraction | 274,334 dtk | 249,169 dtk (−9,17%) |
+| Sequential matching | 287,601 dtk | 432,473 dtk (+50,38%) |
+| Mapper | 94,168 dtk | 161,135 dtk (+71,11%) |
+| Sparse subtotal (3 tahap) | 656,103 dtk | 842,777 dtk (+28,45%) |
+| E2E | 877,795 dtk | 1.083,708 dtk (+23,46%) |
+| Verified pairs | 317 | 317 |
+| Verified inlier matches | 235.217 | 235.270 (+53; +0,023%) |
+| Foto terdaftar | 117/117 | 117/117 |
+| Mean reprojection error | 0,829217 px | 0,830204 px (+0,000987 px) |
+| Fused points | 3.515.801 | 3.521.307 (+0,157%) |
+| Depth maps | 234 | 234 |
+| Peak VRAM tersampel | 203 MB | 681 MB |
+
+Tabel `two_view_geometries` memiliki 692 records per run, tetapi 375
+berstatus `DEGENERATE` dengan nol inlier. Angka verified pair di atas hanya
+menghitung konfigurasi sukses (`config>1`), yaitu 317 per run. Selisih waktu
+matching/mapper tidak dapat diatribusikan ke extractor: run berlangsung
+beberapa jam terpisah dan clock, temperatur, serta beban CPU tidak dicatat.
+Walau ekstraksi CUDA menghemat 25,165 dtk, run ini tidak menunjukkan
+percepatan sparse atau E2E. Karena itu CUDA tetap opt-in eksperimen dan CPU
+tetap backend produksi.
+
+Perbandingan diagnostik cloud dengan sampling fixed-stride 50.000 titik
+menunjukkan 98,875% massa titik CUDA dan 99,382% massa titik CPU berada pada
+sel okupansi 0,5 m yang sama; occupancy Jaccard 0,436964. Rasio outlier 8-NN
+masing-masing 8,764% dan 8,854%. C2C mentah dua arah memiliki median 0,074062
+dan 0,071931 m. Cloud belum disejajarkan dengan Sim3/ICP dan bounding box
+berbeda besar, terutama pada sumbu Z; angka ini diagnostik saja dan bukan
+bukti parity atau akurasi cloud. Eksperimen ini tidak membandingkan
+points/minute dengan OpenMVS atau mengukur no-hole coverage lintas benchmark,
+jadi tidak menghasilkan klaim terhadap success metric proyek.
+
+MMSP build yang dipakai untuk eksperimen mengandung target `sm_61` dan
+`sm_86`; runtime dilakukan pada MX150 (`sm_61`). Tidak ada RTX 3050 di
+lingkungan, jadi MMSP runtime `sm_86` belum diuji. Hasil dataset ini menguji
+extractor CUDA native MMSP; matcher CUDA MMSP belum diimplementasikan.
+
+CudaSift diaudit dan dibangun hanya di OS temp dari commit
+`ed5ef54c67354959e3d5fa829d30de5b278b4d62` pada branch `AdaLovelace`.
+Build library terpisah berhasil untuk `sm_61` dan `sm_86` dengan NVCC 12.4,
+MSVC 19.34, dan OpenCV 4.14.0. CMake kandidat mengunci `sm_89`; nilai target
+di-override hanya pada checkout temporary untuk setiap build. Build Windows
+juga memerlukan `-DWIN32`, karena header menggunakan `#ifdef WIN32` sementara
+MSVC otomatis mendefinisikan `_WIN32`. Dependency prototype dipatok lewat
+vcpkg baseline `e456309491fd875487bf02b8a0dca76c1b1b00cc`, OpenCV tanpa
+default features, zlib 1.3.2, serta helper build vcpkg. Notice OpenCV yang
+terpasang menyertakan Apache-2.0 dan notice zlib memakai lisensi Zlib; CMake
+kandidat sendiri tidak mematok versi OpenCV dan manifest OpenCV tidak
+mendeklarasikan SPDX license, sehingga ini bukan audit dependency yang dapat
+dipakai untuk menyatakan produk lolos.
+
+Smoke test terpisah berjalan pada MX150 `sm_61` memakai citra sintetis
+256×256: ekstraksi menghasilkan 1.401 fitur, descriptor berisi 128 float
+dengan norm pertama 1, dan matcher API kandidat mengembalikan 1.401 pasangan
+pada citra yang sama. Ini sanity check runtime, bukan benchmark atau bukti
+kompatibilitas matcher COLMAP. API CudaSift memakai `float[128]`, sedangkan
+database COLMAP menyimpan SIFT 128-D sebagai `uint8`; adapter dan parity
+harus diuji sebelum interface COLMAP dapat menggunakannya. `sm_86` library
+terkompilasi, tetapi belum runtime-tested karena perangkat RTX 3050 tidak
+tersedia.
+
+Audit lisensi CudaSift tetap **INDETERMINATE / belum lulus**: branch memiliki
+MIT LICENSE dengan copyright Mårten Björkman, tetapi provenance serta cakupan
+perubahan branch belum dapat dipastikan dan salinan dokumentasi lama menyebut
+penggunaan non-komersial. Reviewer lisensi dan reviewer teknis sama-sama
+merekomendasikan menutup gate sampai pemegang hak mengklarifikasi lisensi
+serta seluruh provenance. Source CudaSift tidak dimasukkan ke MMSP, tidak
+diintegrasikan, dan tidak dipakai dalam benchmark dataset 117 foto.
