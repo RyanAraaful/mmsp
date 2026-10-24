@@ -771,3 +771,64 @@ penggunaan non-komersial. Reviewer lisensi dan reviewer teknis sama-sama
 merekomendasikan menutup gate sampai pemegang hak mengklarifikasi lisensi
 serta seluruh provenance. Source CudaSift tidak dimasukkan ke MMSP, tidak
 diintegrasikan, dan tidak dipakai dalam benchmark dataset 117 foto.
+
+### Sparse CUDA matching/mapping screening — NO-GO (2026-10-24, MX150 sm_61)
+
+Sebuah prototype sementara untuk exact top-two L2 pada descriptor SIFT
+128-D byte dibangun pada Windows Release (`/MT`) dengan CUDA Toolkit
+12.4.131 dan target `sm_61;sm_86`. Perangkat runtime adalah Intel Core
+i5-8250U dengan GeForce MX150 2 GB, driver 582.28, power plan Balanced.
+Source kernel ditulis untuk percobaan ini dengan lisensi
+Apache-2.0; tidak mengambil source CudaSift, PopSift, SiftGPU, Faiss, atau
+kode vendor CUDA. Prototype dan test sementara dihapus setelah hasil gagal
+gate; tidak ada source matcher baru atau dependensi yang tertinggal di tree.
+
+Screening memakai database CPU-extraction 117 foto yang sama untuk kedua
+matcher. SHA-256 daftar input adalah
+`4C4B85761C1AAB40C7685CC9C0C6FE348BA785EF1FC9D2C354E5AA8EB61C67FB`, dan
+SHA-256 database extraction-only adalah
+`EB0E9C5CF6C4F049928DC5FF2601A851C9BD847783B8FFBDBB0C0CE84C253640`.
+Kedua run memakai executable Release SHA-256
+`9E01396A60C29A2125E9349C4D9B5FD9814DC7ABD4B43AE142F4D76446F7891D`, opsi
+sequential `overlap=10`, quadratic overlap 1, cross-check/ratio/geometric
+verification default yang sama, dan input database hasil clone identik.
+CPU Faiss menghasilkan 245.138 raw matches, 316 verified pairs, dan 235.221
+inliers dalam 310,397 dtk. Native CUDA exact search menghasilkan 249.682 raw
+matches, 317 verified pairs, dan 240.200 inliers dalam 1.303,495 dtk.
+Per run ini raw-match Jaccard 0,967671 (common 243.345); inlier Jaccard
+0,969636 (common 234.046). Inlier bertambah 2,117% dan waktu matching menjadi
+4,20 kali lebih lama (+319,94%). Hasil tidak identik karena CPU memakai Faiss
+IVF dengan pencarian approximate, sedangkan prototype memeriksa semua
+descriptor. Prototype gagal toleransi yang ditetapkan sebelum screening
+(raw agreement >=99,99%, perubahan inlier <=0,1%); tidak ada klaim parity.
+Verdict prototype matching adalah **NO-GO**. Unit test atau regression test
+otomatis untuk prototype tidak dijalankan; screening dataset satu kali ini
+bukan pengganti suite test.
+
+Angka waktu tersebut adalah satu screening penuh per backend, bukan median
+benchmark tiga pengulangan. Pengulangan dan E2E matcher CUDA dihentikan setelah
+gate correctness gagal dan run penuh menunjukkan perlambatan besar. Karena itu
+tidak ada klaim foto terdaftar, reprojection error, sparse/E2E total, atau
+point-cloud parity untuk matcher CUDA. Warm-up CPU E2E terpisah berhasil
+117/117 foto, 234 depth maps, dan 3.531.284 fused points, tetapi bukan
+pembanding E2E terhadap CUDA matcher. Artifak log/database disimpan pada
+direktori eksperimen eksternal dan tidak dilacak Git.
+
+Pada screening CUDA, telemetry `nvidia-smi` satu detik mencatat maksimum
+utilisasi GPU 100%, suhu 78 C, clock SM dalam rentang 1.328–1.670 MHz, dan
+maksimum VRAM tersampel 87 MB; ini adalah sampling driver, bukan peak
+allocation kernel. Pengambilan daya tidak tersedia. `typeperf` pada window
+yang sama mencatat CPU sistem rata-rata 16,4%, maksimum 56,2%, dan available
+RAM minimum 12.344 MB. Sensor suhu/clock CPU tidak tersedia.
+Tidak terjadi OOM. Runtime hanya diuji pada GeForce MX150 (`sm_61`); RTX 3050
+tidak tersedia. Build menghasilkan target `sm_86`, tetapi tidak ada klaim
+runtime RTX 3050.
+
+GPU mapping **belum dievaluasi**: tidak ada prototype atau benchmark mapping
+CUDA. Build memakai Ceres 2.2.0 dengan komponen LAPACK dan Schur
+specialization tanpa dukungan CUDA; jalur CUDA sparse/CUDSS tidak tersedia,
+jadi eksperimen mapping dihentikan pada pemeriksaan kelayakan ini. Profil CPU
+sebelumnya mencatat local/global BA 81,1 detik dalam mapper 99,6 detik dan E2E
+932,2 detik. Angka itu bukan hasil pengujian GPU mapping. CPU
+SIFT/matching/mapping tetap backend produksi; tidak ada CUDA matching atau
+mapping yang aktif.
